@@ -1,0 +1,434 @@
+/* Enhanced Growth Control Styling - CMD Terminal Theme */
+.growth-control-panel {
+    background: #000000;
+    border: 1px solid #00ff00;
+    border-radius: 0;
+    padding: 20px;
+    margin: 20px 0;
+    box-shadow: none;
+}
+
+.growth-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #00ff00;
+}
+
+.growth-header h3 {
+    margin: 0;
+    color: #00ff00;
+    font-size: 1.5rem;
+    font-family: 'Courier Prime', monospace;
+    font-weight: 400;
+}
+
+.total-progress {
+    flex: 1;
+    margin-left: 20px;
+}
+
+.total-progress span {
+    display: block;
+    font-weight: 400;
+    color: #00ff00;
+    margin-bottom: 5px;
+    font-family: 'Courier Prime', monospace;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 12px;
+    background-color: #001100;
+    border: 1px solid #00ff00;
+    border-radius: 0;
+    overflow: hidden;
+    box-shadow: none;
+}
+
+.progress-fill {
+    height: 100%;
+    background: #00ff00;
+    border-radius: 0;
+    transition: width 0.5s ease;
+    position: relative;
+}
+
+.progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.current-stage {
+    background: #000000;
+    border: 1px solid #00ff00;
+    border-radius: 0;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.current-stage h4 {
+    margin: 0 0 15px 0;
+    color: #00ff00;
+    font-size: 1.3rem;
+    font-family: 'Courier Prime', monospace;
+    font-weight: 400;
+}
+
+.stage-progress {
+    margin-bottom: 20px;
+}
+
+.stage-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+    color: #00ff00;
+    font-family: 'Courier Prime', monospace;
+}
+
+.stage-bar {
+    height: 8px;
+}
+
+.stage-bar .progress-fill {
+    background: #00ff00;
+}
+
+.stage-targets h5 {
+    margin: 0 0 15px 0;
+    color: #00ff00;
+    font-size: 1.1rem;
+    font-family: 'Courier Prime', monospace;
+    font-weight: 400;
+}
+
+.targets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.target-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background: #000000;
+    border: 1px solid #00ff00;
+    border-radius: 0;
+}
+
+.target-label {
+    font-weight: 400;
+    color: #00ff00;
+    font-family: 'Courier Prime', monospace;
+}
+
+.target-value {
+    font-weight: 400;
+    color: #00ff00;
+    font-family: 'Courier Prime', monospace;
+}
+
+.growth-controls {
+    margin: 20px 0;
+}
+
+.control-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.control-buttons .btn {
+    padding: 5px 10px;
+    border: 1px solid #00ff00;
+    border-radius: 0;
+    font-weight: 400;
+    font-family: 'Courier Prime', monospace;
+    transition: none;
+    cursor: pointer;
+    background: #000000;
+    color: #00ff00;
+}
+
+.control-buttons .btn:hover:not(:disabled) {
+    background: #00ff00;
+    color: #000000;
+}
+
+.btn-primary, .btn-secondary, .btn-info, .btn-success {
+    background: #000000;
+    color: #00ff00;
+    border: 1px solid #00ff00;
+}
+
+.btn-primary:hover, .btn-secondary:hover, .btn-info:hover, .btn-success:hover {
+    background: #00ff00;
+    color: #000000;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.growth-timeline {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #dee2e6;
+}
+
+.growth-timeline h5 {
+    margin: 0 0 20px 0;
+    color: #00ff00;
+    font-family: 'Courier Prime', monospace;
+    font-weight: 400;
+}
+
+.timeline {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+    padding: 20px 0;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    top: 35px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #00ff00;
+    z-index: 1;
+}
+
+.timeline-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    flex: 1;
+    z-index: 2;
+}
+
+.timeline-marker {
+    width: 20px;
+    height: 20px;
+    border-radius: 0;
+    background: #000000;
+    border: 2px solid #00ff00;
+    margin-bottom: 10px;
+    transition: none;
+}
+
+.timeline-item.completed .timeline-marker {
+    background: #00ff00;
+}
+
+.timeline-item.active .timeline-marker {
+    background: #00ff00;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(0, 123, 255, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0); }
+}
+
+.timeline-content {
+    text-align: center;
+    min-width: 80px;
+}
+
+.timeline-content h6 {
+    margin: 0 0 5px 0;
+    font-size: 0.9rem;
+    font-weight: 400;
+    color: #00ff00;
+    font-family: 'Courier Prime', monospace;
+}
+
+.timeline-content span {
+    font-size: 0.8rem;
+    color: #00ff00;
+    font-family: 'Courier Prime', monospace;
+}
+
+.timeline-item.active .timeline-content h6 {
+    color: #00ff00;
+}
+
+.timeline-item.completed .timeline-content h6 {
+    color: #00ff00;
+}
+
+.growth-status-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #00ff00;
+    background: #000000;
+    border-radius: 0;
+    border: 1px solid #00ff00;
+    font-family: 'Courier Prime', monospace;
+}
+
+/* Phase Selector Modal */
+.phase-selector-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.phase-selector-modal .modal-content {
+    background: white;
+    border-radius: 12px;
+    padding: 0;
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow: auto;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.phase-selector-modal .modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.phase-selector-modal .modal-header h3 {
+    margin: 0;
+    color: #495057;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #6c757d;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-btn:hover {
+    color: #495057;
+}
+
+.phase-selector-modal .modal-body {
+    padding: 20px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #495057;
+}
+
+.form-select {
+    width: 100%;
+    padding: 10px 15px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 1rem;
+    background: white;
+}
+
+.warning {
+    padding: 15px;
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 6px;
+    color: #856404;
+    font-size: 0.9rem;
+}
+
+.phase-selector-modal .modal-footer {
+    padding: 20px;
+    border-top: 1px solid #dee2e6;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .growth-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .total-progress {
+        margin-left: 0;
+        margin-top: 15px;
+        width: 100%;
+    }
+    
+    .targets-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .control-buttons {
+        flex-direction: column;
+    }
+    
+    .control-buttons .btn {
+        width: 100%;
+    }
+    
+    .timeline {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .timeline::before {
+        display: none;
+    }
+    
+    .timeline-item {
+        flex-direction: row;
+        justify-content: flex-start;
+        text-align: left;
+    }
+    
+    .timeline-marker {
+        margin-right: 15px;
+        margin-bottom: 0;
+    }
+}

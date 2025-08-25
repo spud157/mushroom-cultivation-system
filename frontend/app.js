@@ -1,4 +1,3 @@
-// Mushroom Cultivation System Frontend
 class MushroomCultivationApp {
     constructor() {
         this.apiBaseUrl = 'http://localhost:8001/api';
@@ -6,96 +5,65 @@ class MushroomCultivationApp {
         this.species = [];
         this.selectedChamber = null;
         this.selectedSpecies = null;
-        
-        this.init();
+        this.refreshInterval = null;
     }
 
     async init() {
-        console.log('Initializing Mushroom Cultivation System...');
-        await this.loadData();
-        this.setupEventListeners();
-        this.startDataRefresh();
-    }
-
-    async loadData() {
         try {
-            // Load environments and species in parallel
-            const [environmentsResponse, speciesResponse] = await Promise.all([
-                fetch(`${this.apiBaseUrl}/environments/`),
-                fetch(`${this.apiBaseUrl}/species/`)
-            ]);
-
-            if (environmentsResponse.ok && speciesResponse.ok) {
-                this.environments = await environmentsResponse.json();
-                this.species = await speciesResponse.json();
-                
-                // Load sensor data for each environment
-                await this.loadSensorData();
-                
-                this.renderChambers();
-                this.renderSpecies();
-                this.updateSystemStatus();
-            } else {
-                console.error('Failed to load data');
-            }
+            await this.loadSpecies();
+            await this.loadEnvironments();
+            this.renderSpecies();
+            this.renderChambers();
+            this.updateSystemStatus();
+            this.loadAlerts();
+            this.setupEventListeners();
+            this.startAutoRefresh();
+            // Initialize sensor monitoring with live data tab
+            this.showSensorTab('live');
         } catch (error) {
-            console.error('Error loading data:', error);
+            console.error('Error initializing app:', error);
         }
     }
 
-    async loadSensorData() {
-        try {
-            // Load latest sensor readings for all environments
-            for (let env of this.environments) {
-                const response = await fetch(`${this.apiBaseUrl}/environments/${env.id}/sensors/latest`);
-                if (response.ok) {
-                    env.sensorData = await response.json();
-                } else {
-                    env.sensorData = [];
-                }
+    setupEventListeners() {
+        // Close alerts panel when clicking outside
+        document.addEventListener('click', (e) => {
+            const alertsPanel = document.getElementById('alerts-panel');
+            const alertsButton = document.querySelector('.alert-indicator');
+            
+            if (alertsPanel && alertsPanel.style.display === 'block' && 
+                !alertsPanel.contains(e.target) && !alertsButton.contains(e.target)) {
+                alertsPanel.style.display = 'none';
             }
-        } catch (error) {
-            console.error('Error loading sensor data:', error);
+        });
+
+        // Close alerts panel button
+        const closeAlertsBtn = document.getElementById('close-alerts');
+        if (closeAlertsBtn) {
+            closeAlertsBtn.onclick = () => {
+                document.getElementById('alerts-panel').style.display = 'none';
+            };
         }
     }
 
-    async simulateSensorData(environmentId) {
-        try {
-            const response = await fetch(`${this.apiBaseUrl}/environments/${environmentId}/sensors/simulate`, {
-                method: 'POST'
-            });
-            if (response.ok) {
-                // Reload sensor data for this environment
-                const sensorResponse = await fetch(`${this.apiBaseUrl}/environments/${environmentId}/sensors/latest`);
-                if (sensorResponse.ok) {
-                    const env = this.environments.find(e => e.id === environmentId);
-                    if (env) {
-                        env.sensorData = await sensorResponse.json();
-                        this.renderChambers(); // Re-render to show new data
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error simulating sensor data:', error);
-        }
+    startAutoRefresh() {
+        // Refresh data every 30 seconds
+        this.refreshInterval = setInterval(() => {
+            this.refreshData();
+        }, 30000);
     }
 
-    async loadEnvironments() {
-        try {
-            const response = await fetch(`${this.apiBaseUrl}/environments/`);
-            if (!response.ok) throw new Error('Failed to load environments');
-            this.environments = await response.json();
-        } catch (error) {
-            console.error('Error loading environments:', error);
-            // Create default environments if none exist
-            this.environments = this.createDefaultEnvironments();
+    stopAutoRefresh() {
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+            this.refreshInterval = null;
         }
     }
 
     async loadSpecies() {
         try {
             const response = await fetch(`${this.apiBaseUrl}/species/`);
-            if (!response.ok) throw new Error('Failed to load species');
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             this.species = await response.json();
         } catch (error) {
             console.error('Error loading species:', error);
@@ -103,13 +71,15 @@ class MushroomCultivationApp {
         }
     }
 
-    createDefaultEnvironments() {
-        return [
-            { id: 1, name: 'Environment 1', status: 'idle', species_id: null, current_temperature: null, current_humidity: null, current_co2: null },
-            { id: 2, name: 'Environment 2', status: 'idle', species_id: null, current_temperature: null, current_humidity: null, current_co2: null },
-            { id: 3, name: 'Environment 3', status: 'idle', species_id: null, current_temperature: null, current_humidity: null, current_co2: null },
-            { id: 4, name: 'Environment 4', status: 'idle', species_id: null, current_temperature: null, current_humidity: null, current_co2: null }
-        ];
+    async loadEnvironments() {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/environments/`);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            this.environments = await response.json();
+        } catch (error) {
+            console.error('Error loading environments:', error);
+            this.environments = [];
+        }
     }
 
     renderChambers() {
@@ -121,55 +91,75 @@ class MushroomCultivationApp {
                 <div class="empty-state">
                     <i class="fas fa-home"></i>
                     <h3>No Chambers Available</h3>
+                    <p>Connect to API to load chamber data</p>
+                </div>
+            `;
             return;
         }
 
-        container.innerHTML = this.environments.map(env => {
+        chambersGrid.innerHTML = this.environments.map(env => {
             const species = env.species_id ? this.species.find(s => s.id === env.species_id) : null;
             const statusClass = env.is_active ? 'active' : 'inactive';
             
-            // Get sensor readings
-            const sensorData = env.sensorData || [];
-            const temperature = this.getSensorValue(sensorData, 'temperature', '°C');
-            const humidity = this.getSensorValue(sensorData, 'humidity', '%');
-            const co2 = this.getSensorValue(sensorData, 'co2', 'PPM');
-            const airflow = this.getSensorValue(sensorData, 'airflow', 'm/s');
-            
+            // Use direct sensor data fields from environment
+            const temperature = { 
+                value: env.temperature, 
+                display: env.temperature ? `${env.temperature.toFixed(1)}°C` : '--°C' 
+            };
+            const humidity = { 
+                value: env.humidity, 
+                display: env.humidity ? `${env.humidity.toFixed(1)}%` : '--%' 
+            };
+            const co2 = { 
+                value: env.co2, 
+                display: env.co2 ? `${env.co2} PPM` : '-- PPM' 
+            };
+            const airflow = { 
+                value: env.airflow, 
+                display: env.airflow ? `${env.airflow.toFixed(1)} m/s` : '-- m/s' 
+            };
+
             return `
-                <div class="chamber-tile ${statusClass}" onclick="app.openChamberDetails(${env.id})">
+                <div class="chamber-card ${statusClass}" onclick="app.openChamberModal(${env.id})">
                     <div class="chamber-header">
-                        <h3>${env.name}</h3>
-                        <span class="status-indicator ${statusClass}">${env.is_active ? 'Active' : 'Inactive'}</span>
+                        <div class="chamber-name">${env.name}</div>
+                        <div class="chamber-status ${statusClass}">
+                            <i class="fas fa-circle"></i>
+                            ${env.is_active ? 'Active' : 'Inactive'}
+                        </div>
                     </div>
                     
-                    <div class="chamber-info">
-                        <div class="species-info">
-                            <strong>Species:</strong> ${species ? species.name : 'None assigned'}
-                            ${species ? `<div class="phase-info">Phase: ${env.current_phase || 'Not started'}</div>` : ''}
+                    <div class="chamber-species">
+                        ${species ? 
+                            `<i class="fas fa-leaf"></i> ${species.name}` : 
+                            '<i class="fas fa-plus"></i> No species assigned'
+                        }
+                    </div>
+                    
+                    <div class="sensor-grid">
+                        <div class="sensor-item">
+                            <div class="sensor-label">Temperature</div>
+                            <div class="sensor-value">${temperature.display}</div>
                         </div>
-                        
-                        <div class="environmental-readings">
-                            <div class="reading ${this.getSensorStatus(temperature.value, species, 'temperature')}">
-                                <span class="label">🌡️ Temperature:</span>
-                                <span class="value">${temperature.display}</span>
-                            </div>
-                            <div class="reading ${this.getSensorStatus(humidity.value, species, 'humidity')}">
-                                <span class="label">💧 Humidity:</span>
-                                <span class="value">${humidity.display}</span>
-                            </div>
-                            <div class="reading ${this.getSensorStatus(co2.value, species, 'co2')}">
-                                <span class="label">🌬️ CO2:</span>
-                                <span class="value">${co2.display}</span>
-                            </div>
-                            <div class="reading">
-                                <span class="label">💨 Airflow:</span>
-                                <span class="value">${airflow.display}</span>
-                            </div>
+                        <div class="sensor-item">
+                            <div class="sensor-label">Humidity</div>
+                            <div class="sensor-value">${humidity.display}</div>
                         </div>
-                        
-                        <div class="sensor-timestamp">
-                            Last updated: ${this.getLastSensorUpdate(sensorData)}
+                        <div class="sensor-item">
+                            <div class="sensor-label">CO2</div>
+                            <div class="sensor-value">${co2.display}</div>
                         </div>
+                        <div class="sensor-item">
+                            <div class="sensor-label">Airflow</div>
+                            <div class="sensor-value">${airflow.display}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="sensor-timestamp">
+                        Last updated: ${env.last_sensor_update ? 
+                            new Date(env.last_sensor_update).toLocaleString() : 
+                            'Never'
+                        }
                     </div>
                     
                     <div class="chamber-actions">
@@ -181,8 +171,112 @@ class MushroomCultivationApp {
                         </button>
                     </div>
                 </div>
-            </div>
-        `;
+            `;
+        }).join('');
+    }
+
+    async refreshData() {
+        try {
+            await this.loadSpecies();
+            await this.loadEnvironments();
+            this.renderSpecies();
+            this.renderChambers();
+            this.updateSystemStatus();
+            this.loadAlerts();
+        } catch (error) {
+            console.error('Error refreshing data:', error);
+        }
+    }
+
+    updateSystemStatus() {
+        const activeChambers = this.environments.filter(env => env.is_active).length;
+        const speciesCount = this.species.length;
+        
+        document.getElementById('active-chambers-count').textContent = activeChambers;
+        document.getElementById('species-count').textContent = speciesCount;
+        document.getElementById('system-status').textContent = 'Online';
+    }
+
+    async loadAlerts() {
+        // Simulate alert checking
+        const alerts = this.checkSystemAlerts();
+        const alertCount = alerts.length;
+        
+        const alertCountElement = document.getElementById('active-alerts-count');
+        alertCountElement.textContent = alertCount;
+        alertCountElement.className = `status-value alert-indicator ${alertCount > 0 ? 'has-alerts' : ''}`;
+        
+        // Make alert count clickable to show alerts panel
+        alertCountElement.onclick = alertCount > 0 ? () => this.showAlertsPanel(alerts) : null;
+        alertCountElement.style.cursor = alertCount > 0 ? 'pointer' : 'default';
+    }
+
+    checkSystemAlerts() {
+        const alerts = [];
+        
+        // Check for sensor issues
+        this.environments.forEach(env => {
+            if (env.is_active) {
+                if (!env.temperature || env.temperature < 15 || env.temperature > 30) {
+                    alerts.push({
+                        type: 'warning',
+                        chamber: env.name,
+                        message: `Temperature out of range: ${env.temperature || 'N/A'}°C`,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+                
+                if (!env.humidity || env.humidity < 70 || env.humidity > 95) {
+                    alerts.push({
+                        type: 'warning',
+                        chamber: env.name,
+                        message: `Humidity out of range: ${env.humidity || 'N/A'}%`,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+                
+                if (!env.co2 || env.co2 > 1000) {
+                    alerts.push({
+                        type: 'error',
+                        chamber: env.name,
+                        message: `CO2 levels critical: ${env.co2 || 'N/A'} PPM`,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            }
+        });
+        
+        return alerts;
+    }
+
+    showAlertsPanel(alerts) {
+        const panel = document.getElementById('alerts-panel');
+        const container = document.getElementById('alerts-container');
+        
+        if (alerts.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-check-circle"></i>
+                    <h3>No Active Alerts</h3>
+                    <p>All systems operating normally</p>
+                </div>
+            `;
+        } else {
+            container.innerHTML = alerts.map(alert => `
+                <div class="alert-item ${alert.type}">
+                    <div class="alert-icon">
+                        <i class="fas fa-${alert.type === 'error' ? 'exclamation-triangle' : 'exclamation-circle'}"></i>
+                    </div>
+                    <div class="alert-content">
+                        <div class="alert-title">${alert.chamber}</div>
+                        <div class="alert-message">${alert.message}</div>
+                        <div class="alert-time">${new Date(alert.timestamp).toLocaleString()}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        panel.style.display = 'block';
     }
 
     renderSpecies() {
@@ -224,45 +318,6 @@ class MushroomCultivationApp {
         `;
     }
 
-    updateSystemStatus() {
-        const backendStatus = document.getElementById('backend-status');
-        const databaseStatus = document.getElementById('database-status');
-        const activeChambers = document.getElementById('active-chambers');
-
-        if (backendStatus) backendStatus.textContent = 'Connected';
-        if (databaseStatus) databaseStatus.textContent = 'Online';
-        if (activeChambers) {
-            const activeCount = this.environments.filter(env => env.species_id).length;
-            activeChambers.textContent = activeCount.toString();
-        }
-    }
-
-    setupEventListeners() {
-        // Modal close events
-        window.addEventListener('click', (event) => {
-            if (event.target.classList.contains('modal')) {
-                this.closeModal(event.target.id);
-            }
-        });
-    }
-
-    startDataRefresh() {
-        // Refresh data every 30 seconds
-        setInterval(() => {
-            this.refreshData();
-        }, 30000);
-    }
-
-    async refreshData() {
-        try {
-            await this.loadEnvironments();
-            this.renderChambers();
-            this.updateSystemStatus();
-        } catch (error) {
-            console.error('Error refreshing data:', error);
-        }
-    }
-
     openSpeciesModal(environmentId) {
         this.selectedChamber = this.environments.find(env => env.id === environmentId);
         if (!this.selectedChamber) return;
@@ -275,145 +330,74 @@ class MushroomCultivationApp {
 
         if (speciesOptions) {
             speciesOptions.innerHTML = this.species.map(species => `
-                <div class="species-option" onclick="selectSpecies(${species.id})">
+                <div class="species-option" onclick="app.selectSpecies(${species.id})">
                     <div class="species-option-name">${species.name}</div>
+                    <div class="species-option-scientific">${species.scientific_name || ''}</div>
                     <div class="species-option-difficulty">${species.difficulty_level || 'Beginner'}</div>
                 </div>
             `).join('');
         }
 
-        modal.style.display = 'block';
+        if (modal) modal.style.display = 'block';
     }
 
     selectSpecies(speciesId) {
         this.selectedSpecies = this.species.find(s => s.id === speciesId);
         
-        // Update UI to show selection
+        // Highlight selected species
         document.querySelectorAll('.species-option').forEach(option => {
             option.classList.remove('selected');
         });
         event.target.closest('.species-option').classList.add('selected');
-
-        // Populate phase options
-        const phaseSelect = document.getElementById('phase-select');
-        if (phaseSelect && this.selectedSpecies.grow_phases) {
-            phaseSelect.innerHTML = '<option value="">Select Phase</option>' +
-                this.selectedSpecies.grow_phases.map(phase => 
-                    `<option value="${phase.name}">${phase.name}</option>`
-                ).join('');
-        }
     }
 
     async assignSpecies() {
         if (!this.selectedChamber || !this.selectedSpecies) {
-            this.showError('Please select a species and phase');
+            this.showError('Please select a species first');
             return;
         }
 
-        const phaseSelect = document.getElementById('phase-select');
-        const selectedPhase = phaseSelect ? phaseSelect.value : '';
-
         try {
-            const response = await fetch(`${this.apiBaseUrl}/environments/${this.selectedChamber.id}/assign`, {
-                method: 'POST',
+            const response = await fetch(`${this.apiBaseUrl}/environments/${this.selectedChamber.id}`, {
+                method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    species_id: this.selectedSpecies.id,
-                    phase_name: selectedPhase || undefined
+                    ...this.selectedChamber,
+                    species_id: this.selectedSpecies.id
                 })
             });
 
-            if (!response.ok) throw new Error('Failed to assign species');
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
+            // Update local data
+            this.selectedChamber.species_id = this.selectedSpecies.id;
+            
+            // Refresh UI
+            this.renderChambers();
             this.closeModal('species-modal');
-            await this.refreshData();
             this.showSuccess(`${this.selectedSpecies.name} assigned to ${this.selectedChamber.name}`);
         } catch (error) {
             console.error('Error assigning species:', error);
-            this.showError('Failed to assign species. Please try again.');
+            this.showError('Failed to assign species');
         }
     }
 
-    openChamberDetails(environmentId) {
-        const environment = this.environments.find(env => env.id === environmentId);
-        if (!environment) return;
-
-        // If no species assigned, open assignment modal instead
-        if (!environment.species_id) {
-            this.openSpeciesModal(environmentId);
-            return;
-        }
-
-        this.selectedChamber = environment;
-        const modal = document.getElementById('chamber-modal');
-        const title = document.getElementById('chamber-modal-title');
-
-        if (title) title.textContent = `${environment.name} Details`;
-
-        // Update readings
-        this.updateChamberReadings(environment);
-        
-        // Update actuator states
-        this.updateActuatorStates(environment);
-
-        modal.style.display = 'block';
-    }
-
-    updateChamberReadings(environment) {
-        const readings = {
-            'chamber-temperature': environment.current_temperature ? `${environment.current_temperature.toFixed(1)}°C` : '--°C',
-            'chamber-humidity': environment.current_humidity ? `${environment.current_humidity.toFixed(1)}%` : '--%',
-            'chamber-co2': environment.current_co2 ? `${environment.current_co2.toFixed(0)} ppm` : '-- ppm',
-            'chamber-light': environment.current_light_level ? `${environment.current_light_level.toFixed(0)} lux` : '-- lux'
-        };
-
-        Object.entries(readings).forEach(([id, value]) => {
-            const element = document.getElementById(id);
-            if (element) element.textContent = value;
-        });
-    }
-
-    updateActuatorStates(environment) {
-        const actuators = {
-            'fan-toggle': environment.fan_state,
-            'humidifier-toggle': environment.humidifier_state,
-            'heat-mat-toggle': environment.heat_mat_state,
-            'co2-valve-toggle': environment.co2_valve_state,
-            'light-toggle': environment.light_state
-        };
-
-        Object.entries(actuators).forEach(([id, state]) => {
-            const element = document.getElementById(id);
-            if (element) {
-                element.textContent = state ? 'ON' : 'OFF';
-                element.className = `btn-toggle ${state ? 'on' : 'off'}`;
-            }
-        });
-    }
-
-    async toggleActuator(actuatorType) {
-        if (!this.selectedChamber) return;
-
+    async simulateSensorData(environmentId) {
         try {
-            // This would typically call the backend API to toggle the actuator
-            // For now, we'll simulate the toggle
-            const currentState = this.selectedChamber[`${actuatorType}_state`];
-            
-            // Simulate API call
-            console.log(`Toggling ${actuatorType} for ${this.selectedChamber.name}: ${!currentState}`);
-            
-            // Update local state (in real implementation, this would come from the API response)
-            this.selectedChamber[`${actuatorType}_state`] = !currentState;
-            
-            // Update UI
-            this.updateActuatorStates(this.selectedChamber);
-            
-            this.showSuccess(`${actuatorType.replace('_', ' ')} ${!currentState ? 'activated' : 'deactivated'}`);
+            const response = await fetch(`${this.apiBaseUrl}/environments/${environmentId}/simulate-sensors`, {
+                method: 'POST'
+            });
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+            // Refresh data to show updated sensors
+            await this.refreshData();
+            this.showSuccess('Sensor data updated');
         } catch (error) {
-            console.error(`Error toggling ${actuatorType}:`, error);
-            this.showError(`Failed to toggle ${actuatorType}`);
+            console.error('Error simulating sensor data:', error);
+            this.showError('Failed to update sensor data');
         }
     }
 
@@ -450,281 +434,581 @@ class MushroomCultivationApp {
                 },
                 body: JSON.stringify({
                     name: name,
-                    description: `Grow chamber: ${name}`,
-                    status: 'idle'
+                    is_active: true,
+                    temperature: 20.0,
+                    humidity: 80.0,
+                    co2: 400,
+                    airflow: 0.5
                 })
             });
 
-            if (!response.ok) throw new Error('Failed to create chamber');
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
+            // Refresh data to show new chamber
             await this.refreshData();
             this.showSuccess(`Chamber "${name}" created successfully`);
         } catch (error) {
             console.error('Error creating chamber:', error);
-            this.showError('Failed to create chamber. Please try again.');
+            this.showError('Failed to create chamber');
+        }
+    }
+
+    async addNewSpecies() {
+        openModal('add-species-modal');
+    }
+
+    async saveNewSpecies() {
+        const name = document.getElementById('species-name')?.value;
+        const scientificName = document.getElementById('species-scientific-name')?.value;
+        const description = document.getElementById('species-description')?.value;
+        const difficulty = document.getElementById('species-difficulty')?.value;
+        const growTime = document.getElementById('species-grow-time')?.value;
+
+        if (!name) {
+            this.showError('Species name is required');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/species/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: name,
+                    scientific_name: scientificName || '',
+                    description: description || '',
+                    difficulty_level: difficulty || 'beginner',
+                    typical_grow_time_days: parseInt(growTime) || 30,
+                    grow_phases: [
+                        { name: 'inoculation', duration_days: 7, temperature_range: [20, 25], humidity_range: [80, 90] },
+                        { name: 'colonization', duration_days: 14, temperature_range: [22, 26], humidity_range: [85, 95] },
+                        { name: 'fruiting', duration_days: 10, temperature_range: [18, 22], humidity_range: [90, 95] }
+                    ]
+                })
+            });
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+            // Refresh data and close modal
+            await this.refreshData();
+            closeModal('add-species-modal');
+            this.showSuccess(`Species "${name}" added successfully`);
+            
+            // Clear form
+            document.getElementById('add-species-form')?.reset();
+        } catch (error) {
+            console.error('Error adding species:', error);
+            this.showError('Failed to add species');
+        }
+    }
+
+    openChamberModal(environmentId) {
+        this.selectedChamber = this.environments.find(env => env.id === environmentId);
+        if (!this.selectedChamber) return;
+
+        const modal = document.getElementById('chamber-modal');
+        const chamberName = document.getElementById('chamber-name');
+        const chamberStatus = document.getElementById('chamber-status');
+        const sensorData = document.getElementById('sensor-data');
+
+        if (chamberName) chamberName.textContent = this.selectedChamber.name;
+        if (chamberStatus) {
+            chamberStatus.textContent = this.selectedChamber.is_active ? 'Active' : 'Inactive';
+            chamberStatus.className = `status ${this.selectedChamber.is_active ? 'active' : 'inactive'}`;
+        }
+
+        // Update sensor data display
+        if (sensorData) {
+            sensorData.innerHTML = `
+                <div class="sensor-row">
+                    <span>Temperature:</span>
+                    <span>${this.selectedChamber.temperature ? this.selectedChamber.temperature.toFixed(1) + '°C' : 'N/A'}</span>
+                </div>
+                <div class="sensor-row">
+                    <span>Humidity:</span>
+                    <span>${this.selectedChamber.humidity ? this.selectedChamber.humidity.toFixed(1) + '%' : 'N/A'}</span>
+                </div>
+                <div class="sensor-row">
+                    <span>CO2:</span>
+                    <span>${this.selectedChamber.co2 ? this.selectedChamber.co2 + ' PPM' : 'N/A'}</span>
+                </div>
+                <div class="sensor-row">
+                    <span>Airflow:</span>
+                    <span>${this.selectedChamber.airflow ? this.selectedChamber.airflow.toFixed(1) + ' m/s' : 'N/A'}</span>
+                </div>
+            `;
+        }
+
+        if (modal) modal.style.display = 'block';
+    }
+
+    // Sensor monitoring methods
+    showSensorTab(tab) {
+        const content = document.getElementById('sensor-content');
+        if (!content) return;
+        
+        // Update tab buttons
+        document.querySelectorAll('.sensor-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`.sensor-tabs .tab-btn[onclick*="${tab}"]`).classList.add('active');
+        
+        switch(tab) {
+            case 'live':
+                content.innerHTML = this.renderLiveSensorData();
+                break;
+            case 'control':
+                content.innerHTML = this.renderDeviceControl();
+                break;
+            case 'history':
+                content.innerHTML = this.renderSensorHistory();
+                break;
+        }
+    }
+
+    renderLiveSensorData() {
+        if (this.environments.length === 0) {
+            return '<div class="empty-state">No sensor data available</div>';
+        }
+
+        return `
+            <div class="sensor-controls">
+                <div class="auto-refresh-control">
+                    <label class="checkbox-label">
+                        <input type="checkbox" checked onchange="app.toggleAutoRefresh()">
+                        Auto-refresh (30s)
+                    </label>
+                    <span class="last-update">Last updated: ${new Date().toLocaleTimeString()}</span>
+                </div>
+            </div>
+            
+            <div class="sensors-grid">
+                ${this.environments.map(env => `
+                    <div class="sensor-device">
+                        <div class="device-header">
+                            <h4>${env.name}</h4>
+                            <span class="device-status ${env.is_active ? 'active' : 'inactive'}">${env.is_active ? 'Active' : 'Inactive'}</span>
+                        </div>
+                        <div class="sensor-readings">
+                            <div class="reading-item">
+                                <span class="reading-label">Temperature:</span>
+                                <span class="reading-value ${this.getReadingStatus(env.temperature, 18, 25)}">${env.temperature ? env.temperature.toFixed(1) + '°C' : 'N/A'}</span>
+                            </div>
+                            <div class="reading-item">
+                                <span class="reading-label">Humidity:</span>
+                                <span class="reading-value ${this.getReadingStatus(env.humidity, 80, 95)}">${env.humidity ? env.humidity.toFixed(1) + '%' : 'N/A'}</span>
+                            </div>
+                            <div class="reading-item">
+                                <span class="reading-label">CO2:</span>
+                                <span class="reading-value ${this.getReadingStatus(env.co2, 400, 1000)}">${env.co2 ? env.co2 + ' ppm' : 'N/A'}</span>
+                            </div>
+                            <div class="reading-item">
+                                <span class="reading-label">Airflow:</span>
+                                <span class="reading-value">${env.airflow ? env.airflow.toFixed(1) + ' m/s' : 'N/A'}</span>
+                            </div>
+                            <div class="reading-item">
+                                <span class="reading-label">Last Update:</span>
+                                <span class="reading-value">${env.last_sensor_update ? new Date(env.last_sensor_update).toLocaleString() : 'Never'}</span>
+                            </div>
+                        </div>
+                        <div class="device-actions">
+                            <button class="btn btn-sm btn-primary" onclick="app.viewDeviceDetails(${env.id})">Details</button>
+                            <button class="btn btn-sm btn-warning" onclick="app.calibrateDevice(${env.id})">Calibrate</button>
+                            <button class="btn btn-sm btn-secondary" onclick="app.simulateSensorData(${env.id})">Update</button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    renderDeviceControl() {
+        return `
+            <div class="device-control">
+                <div class="control-form">
+                    <h4>Device Control Panel</h4>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Chamber:</label>
+                            <select id="control-device" class="form-select">
+                                ${this.environments.map(env => `<option value="${env.id}">${env.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Action:</label>
+                            <select id="control-action" class="form-select" onchange="app.updateControlForm()">
+                                <option value="">Select Action</option>
+                                <option value="set_temperature">Set Temperature Target</option>
+                                <option value="set_humidity">Set Humidity Target</option>
+                                <option value="toggle_fan">Toggle Fan</option>
+                                <option value="toggle_heater">Toggle Heater</option>
+                                <option value="toggle_humidifier">Toggle Humidifier</option>
+                                <option value="calibrate">Calibrate Sensors</option>
+                                <option value="restart">Restart Device</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="control-value-group" style="display: none;">
+                            <label id="control-value-label">Value:</label>
+                            <input type="text" id="control-value" class="form-input" placeholder="Enter value">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="app.sendDeviceCommand()">Send Command</button>
+                </div>
+                
+                <div class="command-history">
+                    <h4>Recent Commands</h4>
+                    <div id="command-history-list">
+                        <div class="empty-state">No recent commands</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    renderSensorHistory() {
+        return `
+            <div class="sensor-history">
+                <div class="history-controls">
+                    <h4>Sensor Data History</h4>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Chamber:</label>
+                            <select id="history-device" class="form-select">
+                                <option value="">All Chambers</option>
+                                ${this.environments.map(env => `<option value="${env.id}">${env.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Time Range:</label>
+                            <select id="history-range" class="form-select">
+                                <option value="1h">Last Hour</option>
+                                <option value="24h">Last 24 Hours</option>
+                                <option value="7d">Last 7 Days</option>
+                                <option value="30d">Last 30 Days</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Data Type:</label>
+                            <select id="history-type" class="form-select">
+                                <option value="all">All Sensors</option>
+                                <option value="temperature">Temperature Only</option>
+                                <option value="humidity">Humidity Only</option>
+                                <option value="co2">CO2 Only</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="app.loadHistoryData()">Load History</button>
+                </div>
+                
+                <div class="history-chart">
+                    <div class="chart-placeholder">
+                        <p>Select parameters and click "Load History" to view sensor data trends</p>
+                        <div class="chart-mock">
+                            <div class="chart-line"></div>
+                            <div class="chart-points"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="history-table">
+                    <h5>Data Points</h5>
+                    <div id="history-table-content">
+                        <div class="empty-state">No history data loaded</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    getReadingStatus(value, min, max) {
+        if (!value || value < min || value > max) return 'warning';
+        return 'normal';
+    }
+
+    updateControlForm() {
+        const action = document.getElementById('control-action').value;
+        const valueGroup = document.getElementById('control-value-group');
+        const valueLabel = document.getElementById('control-value-label');
+        const valueInput = document.getElementById('control-value');
+        
+        valueGroup.style.display = 'none';
+        
+        switch(action) {
+            case 'set_temperature':
+                valueGroup.style.display = 'block';
+                valueLabel.textContent = 'Temperature (°C):';
+                valueInput.placeholder = 'e.g., 22';
+                break;
+            case 'set_humidity':
+                valueGroup.style.display = 'block';
+                valueLabel.textContent = 'Humidity (%):';
+                valueInput.placeholder = 'e.g., 85';
+                break;
+        }
+    }
+
+    async sendDeviceCommand() {
+        const deviceId = document.getElementById('control-device').value;
+        const action = document.getElementById('control-action').value;
+        const value = document.getElementById('control-value').value;
+        
+        if (!action) {
+            this.showError('Please select an action');
+            return;
+        }
+        
+        try {
+            // Simulate device command (in real implementation, this would call the API)
+            console.log(`Sending command: ${action} to device ${deviceId} with value ${value}`);
+            
+            this.showSuccess(`Command sent successfully: ${action}`);
+            
+            // Add to command history
+            this.addToCommandHistory({ deviceId, action, value, timestamp: new Date().toISOString() });
+        } catch (error) {
+            console.error('Device control error:', error);
+            this.showError('Failed to send command');
+        }
+    }
+
+    addToCommandHistory(command) {
+        const historyList = document.getElementById('command-history-list');
+        if (!historyList) return;
+        
+        const historyItem = document.createElement('div');
+        historyItem.className = 'history-item';
+        historyItem.innerHTML = `
+            <p><strong>Chamber ${command.deviceId}:</strong> ${command.action} ${command.value || ''}</p>
+            <p class="timestamp">${new Date(command.timestamp).toLocaleString()}</p>
+        `;
+        
+        if (historyList.querySelector('.empty-state')) {
+            historyList.innerHTML = '';
+        }
+        
+        historyList.insertBefore(historyItem, historyList.firstChild);
+    }
+
+    refreshSensorData() {
+        this.refreshData().then(() => {
+            if (document.querySelector('.sensor-tabs .tab-btn.active')?.textContent.includes('Live')) {
+                this.showSensorTab('live');
+            }
+            this.showSuccess('Sensor data refreshed successfully!');
+        });
+    }
+
+    calibrateSensors() {
+        this.showSuccess('Sensor calibration initiated for all devices');
+    }
+
+    exportSensorData() {
+        this.showSuccess('Sensor data export functionality - Coming Soon!');
+    }
+
+    viewDeviceDetails(deviceId) {
+        const device = this.environments.find(env => env.id === deviceId);
+        this.showSuccess(`Viewing details for ${device ? device.name : 'Unknown Device'}`);
+    }
+
+    calibrateDevice(deviceId) {
+        const device = this.environments.find(env => env.id === deviceId);
+        this.showSuccess(`Calibrating ${device ? device.name : 'Unknown Device'}`);
+    }
+
+    loadHistoryData() {
+        const device = document.getElementById('history-device')?.value;
+        const range = document.getElementById('history-range')?.value;
+        const type = document.getElementById('history-type')?.value;
+        
+        this.showSuccess(`Loading history: ${device || 'All chambers'}, ${range}, ${type}`);
+    }
+
+    toggleSensorSection() {
+        const sensorTabs = document.getElementById('sensor-tabs');
+        const sensorContent = document.getElementById('sensor-content');
+        const toggleBtn = document.getElementById('sensor-toggle');
+        
+        if (sensorTabs.style.display === 'none') {
+            sensorTabs.style.display = 'flex';
+            sensorContent.style.display = 'block';
+            toggleBtn.textContent = '[-] Collapse';
+        } else {
+            sensorTabs.style.display = 'none';
+            sensorContent.style.display = 'none';
+            toggleBtn.textContent = '[+] Expand';
         }
     }
 }
 
-// Global functions for HTML onclick events
+// Initialize the app when the page loads
 let app;
+document.addEventListener('DOMContentLoaded', () => {
+    app = new MushroomCultivationApp();
+    app.init();
+});
 
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    if (app) {
+        app.stopAutoRefresh();
+    }
+});
+
+// Global functions for HTML onclick handlers
 function refreshData() {
-    if (app) app.refreshData();
+    if (app) {
+        app.refreshData();
+    }
 }
 
-function showSettings() {
-    alert('Settings panel coming soon!');
+function logout() {
+    if (confirm('Are you sure you want to logout?')) {
+        // Clear any stored session data
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        // Redirect to login page
+        window.location.href = 'login.html';
+    }
 }
 
-function openSpeciesModal(environmentId) {
-    if (app) app.openSpeciesModal(environmentId);
-}
-
-function selectSpecies(speciesId) {
-    if (app) app.selectSpecies(speciesId);
-}
-
-function assignSpecies() {
-    if (app) app.assignSpecies();
-}
-
-function openChamberDetails(environmentId) {
-    if (app) app.openChamberDetails(environmentId);
-}
-
-function toggleActuator(actuatorType) {
-    if (app) app.toggleActuator(actuatorType);
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'block';
+    }
 }
 
 function closeModal(modalId) {
-    if (app) app.closeModal(modalId);
-}
-
-function addNewChamber() {
-    if (app) app.addNewChamber();
-}
-
-function showSpeciesManager() {
-    alert('Species manager coming soon!');
-}
-
-function changePhase() {
-    alert('Phase change functionality coming soon!');
-}
-
-function unassignSpecies() {
-    if (app && app.selectedChamber) {
-        if (confirm(`Unassign species from ${app.selectedChamber.name}?`)) {
-            // Implement unassign functionality
-            alert('Unassign functionality coming soon!');
-        }
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'none';
     }
 }
 
-// Initialize the app when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    app = new MushroomCultivationApp();
-    
-    // Add event listener for Add Chamber button
-    document.getElementById('addChamberBtn').addEventListener('click', showAddChamberModal);
-});
-
-// Chamber Creation Functions
-function showAddChamberModal() {
-    document.getElementById('addChamberModal').style.display = 'block';
+function showAddSpeciesModal() {
+    openModal('add-species-modal');
 }
 
-function closeAddChamberModal() {
-    document.getElementById('addChamberModal').style.display = 'none';
-    document.getElementById('addChamberForm').reset();
-}
-
-async function createChamber() {
-    const name = document.getElementById('chamberName').value;
-    const location = document.getElementById('chamberLocation').value;
-    const description = document.getElementById('chamberDescription').value;
+function toggleSpeciesLibrary() {
+    const speciesGrid = document.getElementById('species-grid');
+    const toggleBtn = document.getElementById('species-toggle');
     
-    if (!name.trim()) {
-        alert('Please enter a chamber name');
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/environments/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                name: name.trim(),
-                location: location.trim() || null,
-                description: description.trim() || null
-            })
-        });
-        
-        if (response.ok) {
-            closeAddChamberModal();
-            app.loadData(); // Refresh the data
-            alert('Chamber created successfully!');
-        } else {
-            const error = await response.json();
-            alert(`Error creating chamber: ${error.detail || 'Unknown error'}`);
-        }
-    } catch (error) {
-        console.error('Error creating chamber:', error);
-        alert('Error creating chamber. Please try again.');
+    if (speciesGrid.style.display === 'none') {
+        speciesGrid.style.display = 'grid';
+        toggleBtn.textContent = '[-] Collapse';
+    } else {
+        speciesGrid.style.display = 'none';
+        toggleBtn.textContent = '[+] Expand';
     }
 }
 
-// Mushroom Details Functions
-let selectedMushroomForAssignment = null;
+function toggleAnalytics() {
+    const analyticsGrid = document.getElementById('analyticsGrid');
+    const toggleBtn = document.getElementById('analyticsToggle');
+    
+    if (analyticsGrid.style.display === 'none') {
+        analyticsGrid.style.display = 'grid';
+        toggleBtn.textContent = '[-] Collapse';
+    } else {
+        analyticsGrid.style.display = 'none';
+        toggleBtn.textContent = '[+] Expand';
+    }
+}
 
-function showMushroomDetails(speciesId) {
-    const species = app.species.find(s => s.id === speciesId);
-    if (!species) return;
+function showAlertsTab(tab) {
+    const content = document.getElementById('alerts-content');
+    if (!content) return;
     
-    selectedMushroomForAssignment = species;
+    // Update tab buttons
+    document.querySelectorAll('.alerts-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
     
-    const modal = document.getElementById('mushroomDetailsModal');
-    const title = document.getElementById('mushroomDetailsTitle');
-    const content = document.getElementById('mushroomDetailsContent');
-    
-    title.textContent = ` ${species.name}`;
-    
-    content.innerHTML = `
-        <div class="mushroom-detail-section">
-            <h3>Basic Information</h3>
-            <div class="detail-grid">
-                <div class="detail-item">
-                    <strong>Scientific Name</strong>
-                    <span>${species.scientific_name || 'Not specified'}</span>
-                </div>
-                <div class="detail-item">
-                    <strong>Difficulty Level</strong>
-                    <span>${species.difficulty_level || 'Not specified'}</span>
-                </div>
-                <div class="detail-item">
-                    <strong>Grow Time</strong>
-                    <span>${species.typical_grow_time_days ? species.typical_grow_time_days + ' days' : 'Not specified'}</span>
-                </div>
-            </div>
-            <p><strong>Description:</strong> ${species.description || 'No description available.'}</p>
-        </div>
-        
-        <div class="mushroom-detail-section">
-            <h3>Environmental Requirements</h3>
-            <div class="detail-grid">
-                <div class="detail-item">
-                    <strong>Temperature</strong>
-                    <span>${species.default_temperature_min || 'N/A'}°C - ${species.default_temperature_max || 'N/A'}°C</span>
-                </div>
-                <div class="detail-item">
-                    <strong>Humidity</strong>
-                    <span>${species.default_humidity_min || 'N/A'}% - ${species.default_humidity_max || 'N/A'}%</span>
-                </div>
-                <div class="detail-item">
-                    <strong>CO2</strong>
-                    <span>${species.default_co2_min || 'N/A'} - ${species.default_co2_max || 'N/A'} PPM</span>
-                </div>
-                <div class="detail-item">
-                    <strong>Fresh Air Exchange</strong>
-                    <span>${species.default_fae_cycles_per_day || 'N/A'} cycles/day</span>
-                </div>
-                <div class="detail-item">
-                    <strong>Light</strong>
-                    <span>${species.default_light_hours_per_day || 'N/A'} hours/day</span>
-                </div>
-            </div>
-        </div>
-        
-        ${species.grow_phases && species.grow_phases.length > 0 ? `
-        <div class="mushroom-detail-section">
-            <h3>Growth Phases</h3>
-            ${species.grow_phases.map(phase => `
-                <div class="phase-card">
-                    <h4>${phase.name} (${phase.duration_days} days)</h4>
-                    <p>${phase.description || 'No description'}</p>
-                    <div class="phase-requirements">
-                        <div><strong>Temp:</strong> ${phase.temperature_min || 'N/A'}°C - ${phase.temperature_max || 'N/A'}°C</div>
-                        <div><strong>Humidity:</strong> ${phase.humidity_min || 'N/A'}% - ${phase.humidity_max || 'N/A'}%</div>
-                        <div><strong>CO2:</strong> ${phase.co2_min || 'N/A'} - ${phase.co2_max || 'N/A'} PPM</div>
+    switch(tab) {
+        case 'active':
+            content.innerHTML = `
+                <div class="alerts-list">
+                    <div class="alert-item warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <div>
+                            <h4>Temperature Alert</h4>
+                            <p>Chamber 1 temperature is above optimal range (25.2°C)</p>
+                            <small>2 minutes ago</small>
+                        </div>
+                    </div>
+                    <div class="alert-item info">
+                        <i class="fas fa-info-circle"></i>
+                        <div>
+                            <h4>Growth Phase Update</h4>
+                            <p>Chamber 2 has entered fruiting phase</p>
+                            <small>15 minutes ago</small>
+                        </div>
                     </div>
                 </div>
-            `).join('')}
-        </div>
-        ` : ''}
-        
-        ${species.notes ? `
-        <div class="mushroom-detail-section">
-            <h3>Notes</h3>
-            <p>${species.notes}</p>
-        </div>
-        ` : ''}
-    `;
-    
-    modal.style.display = 'block';
-}
-
-function closeMushroomDetailsModal() {
-    document.getElementById('mushroomDetailsModal').style.display = 'none';
-    selectedMushroomForAssignment = null;
-}
-
-function assignFromDetails() {
-    if (!selectedMushroomForAssignment) return;
-    
-    // Show chamber selection for assignment
-    const availableChambers = app.environments.filter(env => !env.species_id);
-    
-    if (availableChambers.length === 0) {
-        alert('No available chambers. Please create a chamber first or unassign a species from an existing chamber.');
-        return;
-    }
-    
-    const chamberOptions = availableChambers.map(chamber => 
-        `<option value="${chamber.id}">${chamber.name}</option>`
-    ).join('');
-    
-    const chamberSelect = `
-        <select id="assignChamberSelect" style="width: 100%; padding: 10px; margin: 10px 0;">
-            <option value="">Select a chamber...</option>
-            ${chamberOptions}
-        </select>
-    `;
-    
-    const result = confirm(`Assign ${selectedMushroomForAssignment.name} to a chamber?`);
-    if (result) {
-        // For now, just show available chambers in an alert
-        const chamberList = availableChambers.map(c => c.name).join(', ');
-        alert(`Available chambers: ${chamberList}\n\nPlease use the chamber tiles to assign this species.`);
-        closeMushroomDetailsModal();
+            `;
+            break;
+        case 'history':
+            content.innerHTML = `
+                <div class="alerts-history">
+                    <div class="history-filters">
+                        <select class="form-select">
+                            <option>Last 24 hours</option>
+                            <option>Last week</option>
+                            <option>Last month</option>
+                        </select>
+                        <select class="form-select">
+                            <option>All types</option>
+                            <option>Warnings</option>
+                            <option>Errors</option>
+                            <option>Info</option>
+                        </select>
+                    </div>
+                    <div class="empty-state">
+                        <p>No alert history available</p>
+                    </div>
+                </div>
+            `;
+            break;
+        case 'channels':
+            content.innerHTML = `
+                <div class="notification-channels">
+                    <div class="channel-item">
+                        <h4>Email Notifications</h4>
+                        <label class="checkbox-label">
+                            <input type="checkbox" checked> Enable email alerts
+                        </label>
+                        <input type="email" class="form-input" placeholder="admin@mushroom.farm" value="admin@mushroom.farm">
+                    </div>
+                    <div class="channel-item">
+                        <h4>SMS Notifications</h4>
+                        <label class="checkbox-label">
+                            <input type="checkbox"> Enable SMS alerts
+                        </label>
+                        <input type="tel" class="form-input" placeholder="+1 (555) 123-4567">
+                    </div>
+                </div>
+            `;
+            break;
     }
 }
 
-// Make species cards clickable
-function makeSpeciesCardsClickable() {
-    const speciesCards = document.querySelectorAll('.species-card');
-    speciesCards.forEach(card => {
-        card.style.cursor = 'pointer';
-        card.addEventListener('click', function() {
-            const speciesId = parseInt(this.dataset.speciesId);
-            if (speciesId) {
-                showMushroomDetails(speciesId);
-            }
-        });
-    });
+function createAlert() {
+    alert('Create Alert functionality - Coming Soon!');
 }
 
-// Close modals when clicking outside
-window.addEventListener('click', function(event) {
-    const addChamberModal = document.getElementById('addChamberModal');
-    const mushroomModal = document.getElementById('mushroomDetailsModal');
-    
-    if (event.target === addChamberModal) {
-        closeAddChamberModal();
-    }
-    if (event.target === mushroomModal) {
-        closeMushroomDetailsModal();
-    }
-});
+// Missing global functions that are referenced in HTML
+function showPhaseTab(tab) {
+    console.log('Phase tab:', tab);
+    // Implementation for phase management tabs
+}
+
+function schedulePhaseChange() {
+    alert('Schedule Phase Change - Coming Soon!');
+}
+
+function recordHarvest() {
+    alert('Record Harvest - Coming Soon!');
+}

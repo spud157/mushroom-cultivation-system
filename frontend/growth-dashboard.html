@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Growth Control Dashboard - M.U.S.H</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="growth-control.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="dashboard-header">
+                    <h1 class="main-title">M.U.S.H - Growth Control</h1>
+                    <div class="header-controls-centered">
+                        <button class="btn btn-primary" onclick="window.location.href='index.html'">
+                            <i class="fas fa-home"></i> Main Dashboard
+                        </button>
+                        <button class="btn btn-success" onclick="refreshAllGrowthData()">
+                            <i class="fas fa-sync"></i> Refresh All
+                        </button>
+                        <button class="btn btn-info" onclick="toggleAutoRefresh()">
+                            <i class="fas fa-clock"></i> Auto Refresh: <span id="auto-refresh-status">OFF</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Growth Overview -->
+            <section class="section">
+                <div class="section-header">
+                    <h2><i class="fas fa-seedling"></i> Growth Overview</h2>
+                    <div class="section-controls">
+                        <select id="chamber-filter" class="form-select" onchange="filterChambers()">
+                            <option value="all">All Chambers</option>
+                            <option value="active">Active Only</option>
+                            <option value="assigned">Assigned Only</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="growth-overview-grid" class="growth-overview-grid">
+                    <!-- Growth overview cards will be populated here -->
+                </div>
+            </section>
+
+            <!-- Detailed Growth Control -->
+            <section class="section">
+                <div class="section-header">
+                    <h2><i class="fas fa-chart-line"></i> Detailed Growth Control</h2>
+                    <div class="section-controls">
+                        <select id="detailed-chamber-select" class="form-select" onchange="loadDetailedGrowthControl()">
+                            <option value="">Select Chamber for Detailed Control</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="detailed-growth-container">
+                    <div class="empty-state">
+                        <i class="fas fa-arrow-up"></i>
+                        <h3>Select a Chamber</h3>
+                        <p>Choose a chamber from the dropdown above to view detailed growth controls</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Growth Analytics -->
+            <section class="section">
+                <div class="section-header">
+                    <h2><i class="fas fa-analytics"></i> Growth Analytics</h2>
+                </div>
+
+                <div class="analytics-grid">
+                    <div class="analytics-card">
+                        <h3>Active Batches</h3>
+                        <div class="analytics-value" id="active-batches-count">0</div>
+                        <div class="analytics-label">Currently Growing</div>
+                    </div>
+
+                    <div class="analytics-card">
+                        <h3>Average Progress</h3>
+                        <div class="analytics-value" id="average-progress">0%</div>
+                        <div class="analytics-label">Across All Chambers</div>
+                    </div>
+
+                    <div class="analytics-card">
+                        <h3>Ready for Harvest</h3>
+                        <div class="analytics-value" id="harvest-ready-count">0</div>
+                        <div class="analytics-label">Chambers Complete</div>
+                    </div>
+
+                    <div class="analytics-card">
+                        <h3>Next Phase Change</h3>
+                        <div class="analytics-value" id="next-phase-time">--</div>
+                        <div class="analytics-label">Hours Remaining</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Bulk Growth Operations -->
+            <section class="section">
+                <div class="section-header">
+                    <h2><i class="fas fa-cogs"></i> Bulk Operations</h2>
+                </div>
+
+                <div class="bulk-operations-panel">
+                    <div class="bulk-selection">
+                        <h4>Select Chambers:</h4>
+                        <div id="bulk-chamber-selection" class="chamber-checkboxes">
+                            <!-- Chamber checkboxes will be populated here -->
+                        </div>
+                    </div>
+
+                    <div class="bulk-actions">
+                        <h4>Bulk Actions:</h4>
+                        <div class="bulk-action-buttons">
+                            <button class="btn btn-primary" onclick="bulkAdvancePhase()">
+                                <i class="fas fa-forward"></i> Advance Selected Phases
+                            </button>
+                            <button class="btn btn-warning" onclick="bulkSetPhase()">
+                                <i class="fas fa-edit"></i> Set Phase for Selected
+                            </button>
+                            <button class="btn btn-info" onclick="bulkRefreshData()">
+                                <i class="fas fa-sync"></i> Refresh Selected Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Bulk Phase Selection Modal -->
+    <div id="bulk-phase-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Set Phase for Selected Chambers</h3>
+                <button class="close-btn" onclick="closeBulkPhaseModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Select Phase:</label>
+                    <select id="bulk-phase-select" class="form-select">
+                        <option value="Inoculation">Inoculation</option>
+                        <option value="Colonization">Colonization</option>
+                        <option value="Pinning">Pinning</option>
+                        <option value="Fruiting">Fruiting</option>
+                    </select>
+                </div>
+                <div class="selected-chambers-info">
+                    <h4>Selected Chambers:</h4>
+                    <div id="selected-chambers-list"></div>
+                </div>
+                <div class="warning">
+                    ⚠️ This will change the phase for all selected chambers and reset their growth timers.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeBulkPhaseModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="executeBulkPhaseChange()">Apply Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="growth-control.js"></script>
+    <script>
+        // Growth Dashboard specific functionality
+        let autoRefreshEnabled = false;
+        let autoRefreshInterval = null;
+        let environments = [];
+        let selectedChambers = new Set();
+
+        const API_BASE_URL = 'http://localhost:8001/api';
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadEnvironments();
+            await loadGrowthOverview();
+            populateChamberSelects();
+            updateAnalytics();
+        });
+
+        async function loadEnvironments() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/environments/`);
+                if (response.ok) {
+                    environments = await response.json();
+                }
+            } catch (error) {
+                console.error('Error loading environments:', error);
+            }
+        }
+
+        async function loadGrowthOverview() {
+            const container = document.getElementById('growth-overview-grid');
+            if (!environments.length) {
+                container.innerHTML = '<div class="empty-state"><p>No chambers available</p></div>';
+                return;
+            }
+
+            const growthCards = await Promise.all(
+                environments.map(async (env) => {
+                    if (!env.species_id) {
+                        return `
+                            <div class="growth-overview-card unassigned">
+                                <h3>${env.name}</h3>
+                                <div class="status">No Species Assigned</div>
+                                <button class="btn btn-sm btn-primary" onclick="window.location.href='index.html'">
+                                    Assign Species
+                                </button>
+                            </div>
+                        `;
+                    }
+
+                    // Load growth data directly from API instead of using growthController
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/environments/${env.id}/growth-status`);
+                        if (!response.ok) {
+                            throw new Error('Failed to load growth data');
+                        }
+                        const growthData = await response.json();
+
+                        return `
+                            <div class="growth-overview-card active">
+                                <h3>${env.name}</h3>
+                                <div class="species-name">${growthData.species_name}</div>
+                                <div class="current-stage">${growthData.current_stage.name}</div>
+                                <div class="progress-info">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: ${growthData.total_progress}%"></div>
+                                    </div>
+                                    <span>${growthData.total_progress}% Complete</span>
+                                </div>
+                                <div class="time-remaining">${growthData.current_stage.days_remaining} days remaining</div>
+                                <button class="btn btn-sm btn-primary" onclick="selectDetailedChamber(${env.id})">
+                                    View Details
+                                </button>
+                            </div>
+                        `;
+                    } catch (error) {
+                        return `
+                            <div class="growth-overview-card error">
+                                <h3>${env.name}</h3>
+                                <div class="status">Data Unavailable</div>
+                            </div>
+                        `;
+                    }
+                })
+            );
+
+            container.innerHTML = growthCards.join('');
+        }
+
+        function populateChamberSelects() {
+            const detailedSelect = document.getElementById('detailed-chamber-select');
+            const bulkSelection = document.getElementById('bulk-chamber-selection');
+
+            // Populate detailed chamber select
+            detailedSelect.innerHTML = '<option value="">Select Chamber for Detailed Control</option>' +
+                environments.filter(env => env.species_id).map(env => 
+                    `<option value="${env.id}">${env.name}</option>`
+                ).join('');
+
+            // Populate bulk selection checkboxes
+            bulkSelection.innerHTML = environments.filter(env => env.species_id).map(env => `
+                <label class="chamber-checkbox">
+                    <input type="checkbox" value="${env.id}" onchange="toggleChamberSelection(${env.id})">
+                    <span>${env.name}</span>
+                </label>
+            `).join('');
+        }
+
+        function selectDetailedChamber(chamberId) {
+            document.getElementById('detailed-chamber-select').value = chamberId;
+            loadDetailedGrowthControl();
+        }
+
+        async function loadDetailedGrowthControl() {
+            const select = document.getElementById('detailed-chamber-select');
+            const chamberId = parseInt(select.value);
+            
+            if (!chamberId) {
+                document.getElementById('detailed-growth-container').innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-arrow-up"></i>
+                        <h3>Select a Chamber</h3>
+                        <p>Choose a chamber from the dropdown above to view detailed growth controls</p>
+                    </div>
+                `;
+                return;
+            }
+
+            document.getElementById('detailed-growth-container').innerHTML = `
+                <div id="growth-progress-container">
+                    <div class="loading">Loading growth data...</div>
+                </div>
+            `;
+
+            await growthController.loadGrowthStatus(chamberId);
+            growthController.renderGrowthProgress(chamberId, 'growth-progress-container');
+        }
+
+        async function updateAnalytics() {
+            const activeBatches = environments.filter(env => env.species_id).length;
+            document.getElementById('active-batches-count').textContent = activeBatches;
+
+            if (activeBatches === 0) {
+                document.getElementById('average-progress').textContent = '0%';
+                document.getElementById('harvest-ready-count').textContent = '0';
+                document.getElementById('next-phase-time').textContent = '--';
+                return;
+            }
+
+            let totalProgress = 0;
+            let harvestReady = 0;
+            let minTimeRemaining = Infinity;
+
+            for (const env of environments.filter(env => env.species_id)) {
+                const growthData = await growthController.loadGrowthStatus(env.id);
+                if (growthData && !growthData.status) {
+                    totalProgress += growthData.total_progress;
+                    if (growthData.total_progress >= 100) harvestReady++;
+                    if (growthData.current_stage.hours_remaining < minTimeRemaining) {
+                        minTimeRemaining = growthData.current_stage.hours_remaining;
+                    }
+                }
+            }
+
+            const avgProgress = Math.round(totalProgress / activeBatches);
+            document.getElementById('average-progress').textContent = `${avgProgress}%`;
+            document.getElementById('harvest-ready-count').textContent = harvestReady;
+            document.getElementById('next-phase-time').textContent = 
+                minTimeRemaining === Infinity ? '--' : `${Math.round(minTimeRemaining)}h`;
+        }
+
+        function toggleChamberSelection(chamberId) {
+            if (selectedChambers.has(chamberId)) {
+                selectedChambers.delete(chamberId);
+            } else {
+                selectedChambers.add(chamberId);
+            }
+        }
+
+        async function refreshAllGrowthData() {
+            await loadEnvironments();
+            await loadGrowthOverview();
+            populateChamberSelects();
+            await updateAnalytics();
+            
+            // Refresh detailed view if one is selected
+            const detailedSelect = document.getElementById('detailed-chamber-select');
+            if (detailedSelect.value) {
+                await loadDetailedGrowthControl();
+            }
+        }
+
+        function toggleAutoRefresh() {
+            autoRefreshEnabled = !autoRefreshEnabled;
+            const statusSpan = document.getElementById('auto-refresh-status');
+            
+            if (autoRefreshEnabled) {
+                statusSpan.textContent = 'ON';
+                autoRefreshInterval = setInterval(refreshAllGrowthData, 30000);
+            } else {
+                statusSpan.textContent = 'OFF';
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                }
+            }
+        }
+
+        async function bulkAdvancePhase() {
+            if (selectedChambers.size === 0) {
+                alert('Please select at least one chamber');
+                return;
+            }
+
+            const confirmed = confirm(`Advance phase for ${selectedChambers.size} selected chambers?`);
+            if (!confirmed) return;
+
+            const results = [];
+            for (const chamberId of selectedChambers) {
+                try {
+                    const result = await growthController.advancePhase(chamberId);
+                    results.push(`✅ ${environments.find(e => e.id === chamberId)?.name}: ${result.message}`);
+                } catch (error) {
+                    results.push(`❌ ${environments.find(e => e.id === chamberId)?.name}: ${error.message}`);
+                }
+            }
+
+            alert(results.join('\n'));
+            await refreshAllGrowthData();
+        }
+
+        function bulkSetPhase() {
+            if (selectedChambers.size === 0) {
+                alert('Please select at least one chamber');
+                return;
+            }
+
+            const selectedNames = Array.from(selectedChambers).map(id => 
+                environments.find(e => e.id === id)?.name
+            ).join(', ');
+            
+            document.getElementById('selected-chambers-list').textContent = selectedNames;
+            document.getElementById('bulk-phase-modal').style.display = 'block';
+        }
+
+        function closeBulkPhaseModal() {
+            document.getElementById('bulk-phase-modal').style.display = 'none';
+        }
+
+        async function executeBulkPhaseChange() {
+            const phaseName = document.getElementById('bulk-phase-select').value;
+            const results = [];
+
+            for (const chamberId of selectedChambers) {
+                try {
+                    const result = await growthController.setPhase(chamberId, phaseName);
+                    results.push(`✅ ${environments.find(e => e.id === chamberId)?.name}: ${result.message}`);
+                } catch (error) {
+                    results.push(`❌ ${environments.find(e => e.id === chamberId)?.name}: ${error.message}`);
+                }
+            }
+
+            closeBulkPhaseModal();
+            alert(results.join('\n'));
+            await refreshAllGrowthData();
+        }
+
+        function bulkRefreshData() {
+            if (selectedChambers.size === 0) {
+                alert('Please select at least one chamber');
+                return;
+            }
+
+            refreshAllGrowthData();
+        }
+
+        function filterChambers() {
+            // Implementation for filtering chambers in overview
+            loadGrowthOverview();
+        }
+    </script>
+
+    <style>
+        .growth-overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .growth-overview-card {
+            background: #000000;
+            border: 1px solid #00ff00;
+            border-radius: 0;
+            padding: 20px;
+            box-shadow: none;
+            transition: none;
+        }
+
+        .growth-overview-card:hover {
+            background: #001100;
+        }
+
+        .growth-overview-card.unassigned {
+            border-color: #888888;
+        }
+
+        .growth-overview-card.error {
+            border-color: #ff0000;
+        }
+
+        .growth-overview-card h3 {
+            margin: 0 0 10px 0;
+            color: #00ff00;
+            font-family: 'Courier Prime', monospace;
+            font-weight: 400;
+        }
+
+        .species-name {
+            font-weight: 400;
+            color: #00ff00;
+            margin-bottom: 8px;
+            font-family: 'Courier Prime', monospace;
+        }
+
+        .current-stage {
+            color: #00ff00;
+            font-weight: 400;
+            margin-bottom: 15px;
+            font-family: 'Courier Prime', monospace;
+        }
+
+        .progress-info {
+            margin-bottom: 10px;
+        }
+
+        .progress-info span {
+            font-size: 0.9rem;
+            color: #00ff00;
+            margin-top: 5px;
+            display: block;
+            font-family: 'Courier Prime', monospace;
+        }
+
+        .time-remaining {
+            font-size: 0.9rem;
+            color: #00ff00;
+            margin-bottom: 15px;
+            font-family: 'Courier Prime', monospace;
+        }
+
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .analytics-card {
+            background: #000000;
+            border: 1px solid #00ff00;
+            border-radius: 0;
+            padding: 20px;
+            text-align: center;
+            box-shadow: none;
+        }
+
+        .analytics-card h3 {
+            margin: 0 0 15px 0;
+            color: #00ff00;
+            font-size: 1rem;
+            font-family: 'Courier Prime', monospace;
+            font-weight: 400;
+        }
+
+        .analytics-value {
+            font-size: 2.5rem;
+            font-weight: 400;
+            color: #00ff00;
+            margin-bottom: 5px;
+            font-family: 'Courier Prime', monospace;
+        }
+
+        .analytics-label {
+            color: #00ff00;
+            font-size: 0.9rem;
+            font-family: 'Courier Prime', monospace;
+        }
+
+        .bulk-operations-panel {
+            background: #000000;
+            border: 1px solid #00ff00;
+            border-radius: 0;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: none;
+        }
+
+        .bulk-selection, .bulk-actions {
+            margin-bottom: 20px;
+        }
+
+        .bulk-selection h4, .bulk-actions h4 {
+            margin: 0 0 15px 0;
+            color: #00ff00;
+            font-family: 'Courier Prime', monospace;
+            font-weight: 400;
+        }
+
+        .chamber-checkboxes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .chamber-checkbox {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background: #000000;
+            border: 1px solid #00ff00;
+            border-radius: 0;
+            cursor: pointer;
+            color: #00ff00;
+            font-family: 'Courier Prime', monospace;
+        }
+
+        .chamber-checkbox input {
+            margin-right: 10px;
+        }
+
+        .chamber-checkbox:hover {
+            background: #001100;
+        }
+
+        .bulk-action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #00ff00;
+            font-family: 'Courier Prime', monospace;
+        }
+    </style>
+</body>
+</html>

@@ -121,7 +121,47 @@ SPECIES_DATA = [
 ]
 
 # Sample environments data
-ENVIRONMENTS_DATA = []
+ENVIRONMENTS_DATA = [
+    {
+        "id": 1,
+        "name": "Chamber 1",
+        "location": "Rack A - Level 1",
+        "description": "Primary growing chamber",
+        "is_active": True,
+        "species_id": None,
+        "current_phase": None,
+        "temperature": 22.5,
+        "humidity": 87.2,
+        "co2": 650,
+        "airflow": 0.8
+    },
+    {
+        "id": 2,
+        "name": "Chamber 2", 
+        "location": "Rack A - Level 2",
+        "description": "Secondary growing chamber",
+        "is_active": True,
+        "species_id": 1,
+        "current_phase": "fruiting",
+        "temperature": 20.1,
+        "humidity": 92.5,
+        "co2": 480,
+        "airflow": 1.2
+    },
+    {
+        "id": 3,
+        "name": "Chamber 3",
+        "location": "Rack B - Level 1", 
+        "description": "Experimental chamber",
+        "is_active": False,
+        "species_id": None,
+        "current_phase": None,
+        "temperature": None,
+        "humidity": None,
+        "co2": None,
+        "airflow": None
+    }
+]
 
 # Extended data model for Batch + Cell Manager
 from datetime import datetime, timedelta
@@ -650,6 +690,415 @@ async def create_environment(environment: dict):
     }
     ENVIRONMENTS_DATA.append(new_environment)
     return new_environment
+
+@app.get("/api/environments/{environment_id}/sensors/latest")
+async def get_latest_sensor_data(environment_id: int):
+    """Get latest sensor readings for an environment"""
+    import random
+    from datetime import datetime
+    
+    # Find the environment
+    env = next((e for e in ENVIRONMENTS_DATA if e["id"] == environment_id), None)
+    if not env:
+        return JSONResponse(status_code=404, content={"detail": "Environment not found"})
+    
+    # Generate realistic sensor data
+    sensor_data = [
+        {
+            "id": f"temp_{environment_id}",
+            "type": "temperature",
+            "value": env.get("temperature") or round(random.uniform(18, 26), 1),
+            "unit": "°C",
+            "timestamp": datetime.now().isoformat() + "Z"
+        },
+        {
+            "id": f"humidity_{environment_id}",
+            "type": "humidity", 
+            "value": env.get("humidity") or round(random.uniform(80, 95), 1),
+            "unit": "%",
+            "timestamp": datetime.now().isoformat() + "Z"
+        },
+        {
+            "id": f"co2_{environment_id}",
+            "type": "co2",
+            "value": env.get("co2") or round(random.uniform(400, 1200)),
+            "unit": "PPM",
+            "timestamp": datetime.now().isoformat() + "Z"
+        },
+        {
+            "id": f"airflow_{environment_id}",
+            "type": "airflow",
+            "value": env.get("airflow") or round(random.uniform(0.5, 2.0), 1),
+            "unit": "m/s",
+            "timestamp": datetime.now().isoformat() + "Z"
+        }
+    ]
+    
+    return sensor_data
+
+@app.post("/api/environments/{environment_id}/sensors/simulate")
+async def simulate_sensor_data(environment_id: int):
+    """Simulate new sensor readings"""
+    import random
+    
+    # Find the environment
+    env = next((e for e in ENVIRONMENTS_DATA if e["id"] == environment_id), None)
+    if not env:
+        return JSONResponse(status_code=404, content={"detail": "Environment not found"})
+    
+    # Update environment with new simulated values
+    env["temperature"] = round(random.uniform(18, 26), 1)
+    env["humidity"] = round(random.uniform(80, 95), 1) 
+    env["co2"] = round(random.uniform(400, 1200))
+    env["airflow"] = round(random.uniform(0.5, 2.0), 1)
+    
+    return {"status": "success", "message": "Sensor data simulated"}
+
+@app.post("/api/environments/{environment_id}/assign")
+async def assign_species_to_environment(environment_id: int, assignment: dict):
+    """Assign a species to an environment"""
+    # Find the environment
+    env = next((e for e in ENVIRONMENTS_DATA if e["id"] == environment_id), None)
+    if not env:
+        return JSONResponse(status_code=404, content={"detail": "Environment not found"})
+    
+    # Find the species
+    species_id = assignment.get("species_id")
+    species = next((s for s in SPECIES_DATA if s["id"] == species_id), None)
+    if not species:
+        return JSONResponse(status_code=404, content={"detail": "Species not found"})
+    
+    # Assign species to environment
+    env["species_id"] = species_id
+    env["current_phase"] = assignment.get("phase_name", "inoculation")
+    env["is_active"] = True
+    
+    # Set phase start time for growth tracking
+    from datetime import datetime
+    env["phase_start_time"] = datetime.now().isoformat()
+    
+    return env
+
+@app.get("/api/environments/{environment_id}/growth-status")
+async def get_growth_status(environment_id: int):
+    """Get detailed growth status for an environment"""
+    env = next((e for e in ENVIRONMENTS_DATA if e["id"] == environment_id), None)
+    if not env:
+        return JSONResponse(status_code=404, content={"detail": "Environment not found"})
+    
+    if not env.get("species_id"):
+        return {"status": "no_species", "message": "No species assigned"}
+    
+    species = next((s for s in SPECIES_WITH_STAGES if s["id"] == env["species_id"]), None)
+    if not species:
+        return {"status": "species_not_found", "message": "Species data not found"}
+    
+    from datetime import datetime, timedelta
+    
+    # Calculate current stage and progress
+    start_time = env.get("phase_start_time", datetime.now().isoformat())
+    if isinstance(start_time, str):
+        start_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+    
+    elapsed_hours = (datetime.now() - start_time).total_seconds() / 3600
+    current_stage_index = 0
+    cumulative_hours = 0
+    
+    for i, stage in enumerate(species["stages"]):
+        cumulative_hours += stage["durationHours"]
+        if elapsed_hours <= cumulative_hours:
+            current_stage_index = i
+            break
+    else:
+        current_stage_index = len(species["stages"]) - 1  # Completed
+    
+    current_stage = species["stages"][current_stage_index]
+    stage_start_hours = cumulative_hours - current_stage["durationHours"]
+    stage_elapsed = elapsed_hours - stage_start_hours
+    stage_progress = min(stage_elapsed / current_stage["durationHours"], 1.0)
+    hours_remaining = max(current_stage["durationHours"] - stage_elapsed, 0)
+    
+    # Calculate total progress
+    total_duration = sum(stage["durationHours"] for stage in species["stages"])
+    total_progress = min(elapsed_hours / total_duration, 1.0)
+    
+    return {
+        "environment_id": environment_id,
+        "species_name": species["name"],
+        "total_progress": round(total_progress * 100, 1),
+        "current_stage": {
+            "index": current_stage_index,
+            "name": current_stage["name"],
+            "progress": round(stage_progress * 100, 1),
+            "hours_remaining": round(hours_remaining, 1),
+            "days_remaining": round(hours_remaining / 24, 1),
+            "targets": current_stage["targets"]
+        },
+        "next_stage": species["stages"][current_stage_index + 1] if current_stage_index + 1 < len(species["stages"]) else None,
+        "all_stages": species["stages"],
+        "phase_start_time": start_time.isoformat(),
+        "estimated_completion": (start_time + timedelta(hours=total_duration)).isoformat()
+    }
+
+@app.post("/api/environments/{environment_id}/advance-phase")
+async def advance_growth_phase(environment_id: int):
+    """Manually advance to next growth phase"""
+    env = next((e for e in ENVIRONMENTS_DATA if e["id"] == environment_id), None)
+    if not env:
+        return JSONResponse(status_code=404, content={"detail": "Environment not found"})
+    
+    if not env.get("species_id"):
+        return JSONResponse(status_code=400, content={"detail": "No species assigned"})
+    
+    species = next((s for s in SPECIES_WITH_STAGES if s["id"] == env["species_id"]), None)
+    if not species:
+        return JSONResponse(status_code=404, content={"detail": "Species data not found"})
+    
+    # Get current stage
+    growth_status = await get_growth_status(environment_id)
+    if growth_status.get("status"):  # Error response
+        return growth_status
+    
+    current_stage_index = growth_status["current_stage"]["index"]
+    
+    if current_stage_index >= len(species["stages"]) - 1:
+        return {"status": "completed", "message": "Growth cycle already completed"}
+    
+    # Advance to next stage
+    next_stage_index = current_stage_index + 1
+    next_stage = species["stages"][next_stage_index]
+    
+    from datetime import datetime
+    env["phase_start_time"] = datetime.now().isoformat()
+    env["current_phase"] = next_stage["name"]
+    
+    return {
+        "status": "success",
+        "message": f"Advanced to {next_stage['name']} phase",
+        "new_phase": next_stage["name"],
+        "stage_index": next_stage_index
+    }
+
+@app.post("/api/environments/{environment_id}/set-phase")
+async def set_growth_phase(environment_id: int, phase_data: dict):
+    """Set a specific growth phase for an environment"""
+    env = next((e for e in ENVIRONMENTS_DATA if e["id"] == environment_id), None)
+    if not env:
+        return JSONResponse(status_code=404, content={"detail": "Environment not found"})
+    
+    if not env.get("species_id"):
+        return JSONResponse(status_code=400, content={"detail": "No species assigned to this environment"})
+    
+    species = next((s for s in SPECIES_WITH_STAGES if s["id"] == env["species_id"]), None)
+    if not species:
+        return JSONResponse(status_code=404, content={"detail": "Species not found"})
+    
+    phase_name = phase_data.get("phase_name")
+    if not phase_name:
+        return JSONResponse(status_code=400, content={"detail": "Phase name is required"})
+    
+    # Find the stage by name
+    target_stage = None
+    for stage in species["stages"]:
+        if stage["name"].lower() == phase_name.lower():
+            target_stage = stage
+            break
+    
+    if not target_stage:
+        return JSONResponse(status_code=400, content={"detail": f"Phase '{phase_name}' not found for species {species['name']}"})
+    
+    # Set the phase start time to now
+    from datetime import datetime
+    env["phase_start_time"] = datetime.now().isoformat()
+    env["current_phase"] = target_stage["name"]
+    
+    return {
+        "message": f"Phase set to {phase_name} successfully",
+        "environment_id": environment_id,
+        "phase_name": phase_name,
+        "phase_start_time": env["phase_start_time"]
+    }
+
+# Automated Growth Progression Endpoints
+
+@app.get("/api/automation/growth-rules")
+async def get_growth_automation_rules():
+    """Get all growth automation rules"""
+    return AUTOMATION_RULES.get("growth_progression", [])
+
+@app.post("/api/automation/growth-rules")
+async def create_growth_automation_rule(rule_data: dict):
+    """Create a new growth automation rule"""
+    if "growth_progression" not in AUTOMATION_RULES:
+        AUTOMATION_RULES["growth_progression"] = []
+    
+    rule = {
+        "id": len(AUTOMATION_RULES["growth_progression"]) + 1,
+        "name": rule_data.get("name", "Untitled Rule"),
+        "enabled": rule_data.get("enabled", True),
+        "trigger_type": rule_data.get("trigger_type", "time_based"),  # time_based, sensor_based, manual
+        "conditions": rule_data.get("conditions", {}),
+        "action": rule_data.get("action", "advance_phase"),
+        "target_environments": rule_data.get("target_environments", []),
+        "created_at": rule_data.get("created_at", "2025-08-10T00:00:00Z")
+    }
+    
+    AUTOMATION_RULES["growth_progression"].append(rule)
+    return {"message": "Growth automation rule created", "rule": rule}
+
+@app.put("/api/automation/growth-rules/{rule_id}")
+async def update_growth_automation_rule(rule_id: int, rule_data: dict):
+    """Update a growth automation rule"""
+    rules = AUTOMATION_RULES.get("growth_progression", [])
+    rule = next((r for r in rules if r["id"] == rule_id), None)
+    
+    if not rule:
+        return JSONResponse(status_code=404, content={"detail": "Rule not found"})
+    
+    rule.update({
+        "name": rule_data.get("name", rule["name"]),
+        "enabled": rule_data.get("enabled", rule["enabled"]),
+        "trigger_type": rule_data.get("trigger_type", rule["trigger_type"]),
+        "conditions": rule_data.get("conditions", rule["conditions"]),
+        "action": rule_data.get("action", rule["action"]),
+        "target_environments": rule_data.get("target_environments", rule["target_environments"]),
+        "updated_at": rule_data.get("updated_at", "2025-08-10T00:00:00Z")
+    })
+    
+    return {"message": "Growth automation rule updated", "rule": rule}
+
+@app.delete("/api/automation/growth-rules/{rule_id}")
+async def delete_growth_automation_rule(rule_id: int):
+    """Delete a growth automation rule"""
+    rules = AUTOMATION_RULES.get("growth_progression", [])
+    rule_index = next((i for i, r in enumerate(rules) if r["id"] == rule_id), None)
+    
+    if rule_index is None:
+        return JSONResponse(status_code=404, content={"detail": "Rule not found"})
+    
+    deleted_rule = rules.pop(rule_index)
+    return {"message": "Growth automation rule deleted", "rule": deleted_rule}
+
+@app.post("/api/automation/check-growth-progression")
+async def check_and_execute_growth_progression():
+    """Check all environments for automated growth progression triggers"""
+    results = []
+    growth_rules = AUTOMATION_RULES.get("growth_progression", [])
+    
+    for env in ENVIRONMENTS_DATA:
+        if not env.get("species_id") or not env.get("phase_start_time"):
+            continue
+            
+        species = next((s for s in SPECIES_WITH_STAGES if s["id"] == env["species_id"]), None)
+        if not species:
+            continue
+        
+        # Check each enabled rule
+        for rule in growth_rules:
+            if not rule.get("enabled", True):
+                continue
+                
+            # Check if this environment is targeted by the rule
+            target_envs = rule.get("target_environments", [])
+            if target_envs and env["id"] not in target_envs:
+                continue
+            
+            should_trigger = False
+            trigger_reason = ""
+            
+            if rule["trigger_type"] == "time_based":
+                # Check if enough time has passed for current stage
+                current_stage_index = env.get("current_stage_index", 0)
+                if current_stage_index < len(species["stages"]):
+                    current_stage = species["stages"][current_stage_index]
+                    start_time = datetime.fromisoformat(env["phase_start_time"])
+                    elapsed_hours = (datetime.now() - start_time).total_seconds() / 3600
+                    
+                    stage_duration = current_stage["durationHours"]
+                    completion_threshold = rule["conditions"].get("completion_threshold", 100)
+                    
+                    if elapsed_hours >= (stage_duration * completion_threshold / 100):
+                        should_trigger = True
+                        trigger_reason = f"Time threshold reached ({completion_threshold}% of stage duration)"
+            
+            elif rule["trigger_type"] == "sensor_based":
+                # Check sensor conditions
+                conditions = rule["conditions"]
+                sensor_data = env.get("sensors", {})
+                
+                all_conditions_met = True
+                for sensor_type, condition in conditions.items():
+                    if sensor_type in sensor_data:
+                        sensor_value = sensor_data[sensor_type]["value"]
+                        operator = condition.get("operator", ">=")
+                        threshold = condition.get("threshold", 0)
+                        
+                        if operator == ">=" and sensor_value < threshold:
+                            all_conditions_met = False
+                        elif operator == "<=" and sensor_value > threshold:
+                            all_conditions_met = False
+                        elif operator == "==" and sensor_value != threshold:
+                            all_conditions_met = False
+                
+                if all_conditions_met:
+                    should_trigger = True
+                    trigger_reason = "Sensor conditions met"
+            
+            # Execute action if triggered
+            if should_trigger:
+                action = rule.get("action", "advance_phase")
+                
+                if action == "advance_phase":
+                    current_stage_index = env.get("current_stage_index", 0)
+                    if current_stage_index + 1 < len(species["stages"]):
+                        env["current_stage_index"] = current_stage_index + 1
+                        env["phase_start_time"] = datetime.now().isoformat()
+                        
+                        next_stage = species["stages"][current_stage_index + 1]
+                        results.append({
+                            "environment_id": env["id"],
+                            "environment_name": env["name"],
+                            "rule_name": rule["name"],
+                            "action": "phase_advanced",
+                            "new_phase": next_stage["name"],
+                            "trigger_reason": trigger_reason,
+                            "timestamp": datetime.now().isoformat()
+                        })
+                
+                elif action == "complete_batch":
+                    env["batch_completed"] = True
+                    env["completion_time"] = datetime.now().isoformat()
+                    
+                    results.append({
+                        "environment_id": env["id"],
+                        "environment_name": env["name"],
+                        "rule_name": rule["name"],
+                        "action": "batch_completed",
+                        "trigger_reason": trigger_reason,
+                        "timestamp": datetime.now().isoformat()
+                    })
+    
+    return {
+        "message": f"Growth progression check completed. {len(results)} actions executed.",
+        "actions_executed": results,
+        "timestamp": datetime.now().isoformat()
+    }
+
+@app.post("/api/automation/toggle-auto-progression")
+async def toggle_auto_progression(settings: dict):
+    """Enable/disable automatic growth progression globally"""
+    enabled = settings.get("enabled", False)
+    interval_minutes = settings.get("interval_minutes", 60)
+    
+    # Store the setting (in a real app, this would be in a database)
+    AUTOMATION_RULES["auto_progression_enabled"] = enabled
+    AUTOMATION_RULES["auto_progression_interval"] = interval_minutes
+    
+    return {
+        "message": f"Auto progression {'enabled' if enabled else 'disabled'}",
+        "enabled": enabled,
+        "interval_minutes": interval_minutes
+    }
 
 # Automation Rules API Endpoints
 @app.get("/api/rules")

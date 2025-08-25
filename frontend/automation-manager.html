@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automation Manager - M.U.S.H</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="growth-control.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="dashboard-header">
+                    <h1 class="main-title">M.U.S.H - Automation Manager</h1>
+                    <div class="header-controls-centered">
+                        <button class="btn btn-primary" onclick="window.location.href='index.html'">
+                            <i class="fas fa-home"></i> Main Dashboard
+                        </button>
+                        <button class="btn btn-success" onclick="createNewRule()">
+                            <i class="fas fa-plus"></i> New Rule
+                        </button>
+                        <button class="btn btn-info" onclick="checkGrowthProgression()">
+                            <i class="fas fa-play"></i> Run Check
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Auto Progression Settings -->
+            <section class="section">
+                <div class="section-header">
+                    <h2><i class="fas fa-cog"></i> Auto Progression Settings</h2>
+                </div>
+
+                <div class="auto-progression-panel">
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <h3>Automatic Growth Progression</h3>
+                            <p>Enable automatic phase advancement based on time and sensor triggers</p>
+                        </div>
+                        <div class="setting-control">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="auto-progression-toggle" onchange="toggleAutoProgression()">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-row" id="interval-setting">
+                        <div class="setting-info">
+                            <h3>Check Interval</h3>
+                            <p>How often to check for automation triggers (minutes)</p>
+                        </div>
+                        <div class="setting-control">
+                            <input type="number" id="interval-input" value="60" min="5" max="1440" class="form-input">
+                            <button class="btn btn-sm btn-primary" onclick="updateInterval()">Update</button>
+                        </div>
+                    </div>
+
+                    <div class="last-check-info">
+                        <span>Last Check: <span id="last-check-time">Never</span></span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Growth Rules -->
+            <section class="section">
+                <div class="section-header">
+                    <h2><i class="fas fa-rules"></i> Growth Automation Rules</h2>
+                </div>
+
+                <div id="growth-rules-container">
+                    <!-- Rules will be populated here -->
+                </div>
+            </section>
+
+            <!-- Recent Actions -->
+            <section class="section">
+                <div class="section-header">
+                    <h2><i class="fas fa-history"></i> Recent Automation Actions</h2>
+                    <button class="btn btn-secondary" onclick="clearActionHistory()">
+                        <i class="fas fa-trash"></i> Clear History
+                    </button>
+                </div>
+
+                <div id="recent-actions-container">
+                    <div class="empty-state">
+                        <i class="fas fa-clock"></i>
+                        <h3>No Recent Actions</h3>
+                        <p>Automation actions will appear here when they occur</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Rule Creation/Edit Modal -->
+    <div id="rule-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="rule-modal-title">Create New Rule</h3>
+                <button class="close-btn" onclick="closeRuleModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="rule-form">
+                    <div class="form-group">
+                        <label>Rule Name:</label>
+                        <input type="text" id="rule-name" class="form-input" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Trigger Type:</label>
+                        <select id="rule-trigger-type" class="form-select" onchange="updateTriggerOptions()">
+                            <option value="time_based">Time Based</option>
+                            <option value="sensor_based">Sensor Based</option>
+                        </select>
+                    </div>
+
+                    <div id="time-based-options" class="trigger-options">
+                        <div class="form-group">
+                            <label>Completion Threshold (%):</label>
+                            <input type="number" id="completion-threshold" class="form-input" value="100" min="1" max="100">
+                            <small>Advance when stage is X% complete</small>
+                        </div>
+                    </div>
+
+                    <div id="sensor-based-options" class="trigger-options" style="display: none;">
+                        <div class="form-group">
+                            <label>Temperature Condition:</label>
+                            <select class="form-select condition-operator" data-sensor="temperature">
+                                <option value="">No condition</option>
+                                <option value=">=">Greater than or equal</option>
+                                <option value="<=">Less than or equal</option>
+                                <option value="==">Equal to</option>
+                            </select>
+                            <input type="number" class="form-input condition-value" data-sensor="temperature" placeholder="°C">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Humidity Condition:</label>
+                            <select class="form-select condition-operator" data-sensor="humidity">
+                                <option value="">No condition</option>
+                                <option value=">=">Greater than or equal</option>
+                                <option value="<=">Less than or equal</option>
+                                <option value="==">Equal to</option>
+                            </select>
+                            <input type="number" class="form-input condition-value" data-sensor="humidity" placeholder="%">
+                        </div>
+
+                        <div class="form-group">
+                            <label>CO2 Condition:</label>
+                            <select class="form-select condition-operator" data-sensor="co2">
+                                <option value="">No condition</option>
+                                <option value=">=">Greater than or equal</option>
+                                <option value="<=">Less than or equal</option>
+                                <option value="==">Equal to</option>
+                            </select>
+                            <input type="number" class="form-input condition-value" data-sensor="co2" placeholder="ppm">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Action:</label>
+                        <select id="rule-action" class="form-select">
+                            <option value="advance_phase">Advance to Next Phase</option>
+                            <option value="complete_batch">Mark Batch Complete</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Target Chambers:</label>
+                        <div id="chamber-selection" class="chamber-checkboxes">
+                            <!-- Will be populated with available chambers -->
+                        </div>
+                        <small>Leave empty to apply to all chambers</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="rule-enabled" checked>
+                            <span>Enable this rule</span>
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeRuleModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveRule()">Save Rule</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8001/api';
+        let environments = [];
+        let growthRules = [];
+        let editingRuleId = null;
+        let actionHistory = JSON.parse(localStorage.getItem('automation_history') || '[]');
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadEnvironments();
+            await loadGrowthRules();
+            await loadAutoProgressionSettings();
+            renderGrowthRules();
+            renderActionHistory();
+        });
+
+        async function loadEnvironments() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/environments/`);
+                if (response.ok) {
+                    environments = await response.json();
+                }
+            } catch (error) {
+                console.error('Error loading environments:', error);
+            }
+        }
+
+        async function loadGrowthRules() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/automation/growth-rules`);
+                if (response.ok) {
+                    growthRules = await response.json();
+                }
+            } catch (error) {
+                console.error('Error loading growth rules:', error);
+            }
+        }
+
+        async function loadAutoProgressionSettings() {
+            // Load current settings from backend if available
+            const toggle = document.getElementById('auto-progression-toggle');
+            const interval = document.getElementById('interval-input');
+            
+            // For now, use localStorage to persist settings
+            const settings = JSON.parse(localStorage.getItem('auto_progression_settings') || '{"enabled": false, "interval": 60}');
+            toggle.checked = settings.enabled;
+            interval.value = settings.interval;
+            
+            updateIntervalVisibility();
+        }
+
+        function renderGrowthRules() {
+            const container = document.getElementById('growth-rules-container');
+            
+            if (growthRules.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-plus-circle"></i>
+                        <h3>No Automation Rules</h3>
+                        <p>Create your first automation rule to get started</p>
+                        <button class="btn btn-primary" onclick="createNewRule()">Create Rule</button>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = growthRules.map(rule => `
+                <div class="rule-card ${rule.enabled ? 'enabled' : 'disabled'}">
+                    <div class="rule-header">
+                        <h3>${rule.name}</h3>
+                        <div class="rule-controls">
+                            <label class="toggle-switch small">
+                                <input type="checkbox" ${rule.enabled ? 'checked' : ''} onchange="toggleRule(${rule.id})">
+                                <span class="slider"></span>
+                            </label>
+                            <button class="btn btn-sm btn-secondary" onclick="editRule(${rule.id})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteRule(${rule.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="rule-details">
+                        <div class="rule-info">
+                            <span class="rule-type">${rule.trigger_type.replace('_', ' ').toUpperCase()}</span>
+                            <span class="rule-action">${rule.action.replace('_', ' ').toUpperCase()}</span>
+                        </div>
+                        <div class="rule-conditions">
+                            ${renderRuleConditions(rule)}
+                        </div>
+                        <div class="rule-targets">
+                            ${rule.target_environments.length > 0 
+                                ? `Targets: ${rule.target_environments.map(id => environments.find(e => e.id === id)?.name || `Chamber ${id}`).join(', ')}`
+                                : 'Applies to all chambers'
+                            }
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderRuleConditions(rule) {
+            if (rule.trigger_type === 'time_based') {
+                const threshold = rule.conditions.completion_threshold || 100;
+                return `Advance when stage is ${threshold}% complete`;
+            } else if (rule.trigger_type === 'sensor_based') {
+                const conditions = [];
+                for (const [sensor, condition] of Object.entries(rule.conditions)) {
+                    if (condition.operator && condition.threshold !== undefined) {
+                        conditions.push(`${sensor} ${condition.operator} ${condition.threshold}`);
+                    }
+                }
+                return conditions.length > 0 ? conditions.join(' AND ') : 'No conditions set';
+            }
+            return '';
+        }
+
+        function renderActionHistory() {
+            const container = document.getElementById('recent-actions-container');
+            
+            if (actionHistory.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-clock"></i>
+                        <h3>No Recent Actions</h3>
+                        <p>Automation actions will appear here when they occur</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = actionHistory.slice(-10).reverse().map(action => `
+                <div class="action-item">
+                    <div class="action-icon">
+                        <i class="fas fa-${action.action === 'phase_advanced' ? 'forward' : 'check-circle'}"></i>
+                    </div>
+                    <div class="action-details">
+                        <div class="action-title">${action.rule_name}</div>
+                        <div class="action-description">
+                            ${action.environment_name}: ${action.action === 'phase_advanced' 
+                                ? `Advanced to ${action.new_phase}` 
+                                : 'Batch completed'
+                            }
+                        </div>
+                        <div class="action-time">${new Date(action.timestamp).toLocaleString()}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function toggleAutoProgression() {
+            const enabled = document.getElementById('auto-progression-toggle').checked;
+            const interval = parseInt(document.getElementById('interval-input').value);
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/automation/toggle-auto-progression`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled, interval_minutes: interval })
+                });
+                
+                if (response.ok) {
+                    const settings = { enabled, interval };
+                    localStorage.setItem('auto_progression_settings', JSON.stringify(settings));
+                    updateIntervalVisibility();
+                } else {
+                    throw new Error('Failed to update settings');
+                }
+            } catch (error) {
+                console.error('Error updating auto progression:', error);
+                alert('Failed to update auto progression settings');
+            }
+        }
+
+        function updateIntervalVisibility() {
+            const enabled = document.getElementById('auto-progression-toggle').checked;
+            document.getElementById('interval-setting').style.display = enabled ? 'flex' : 'none';
+        }
+
+        async function updateInterval() {
+            const interval = parseInt(document.getElementById('interval-input').value);
+            const enabled = document.getElementById('auto-progression-toggle').checked;
+            
+            if (enabled) {
+                await toggleAutoProgression();
+            }
+        }
+
+        async function checkGrowthProgression() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/automation/check-growth-progression`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    document.getElementById('last-check-time').textContent = new Date().toLocaleString();
+                    
+                    // Add actions to history
+                    actionHistory.push(...result.actions_executed);
+                    localStorage.setItem('automation_history', JSON.stringify(actionHistory));
+                    
+                    renderActionHistory();
+                    alert(`Check completed. ${result.actions_executed.length} actions executed.`);
+                } else {
+                    throw new Error('Failed to check growth progression');
+                }
+            } catch (error) {
+                console.error('Error checking growth progression:', error);
+                alert('Failed to check growth progression');
+            }
+        }
+
+        function createNewRule() {
+            editingRuleId = null;
+            document.getElementById('rule-modal-title').textContent = 'Create New Rule';
+            document.getElementById('rule-form').reset();
+            document.getElementById('rule-enabled').checked = true;
+            populateChamberSelection();
+            updateTriggerOptions();
+            document.getElementById('rule-modal').style.display = 'block';
+        }
+
+        function editRule(ruleId) {
+            const rule = growthRules.find(r => r.id === ruleId);
+            if (!rule) return;
+            
+            editingRuleId = ruleId;
+            document.getElementById('rule-modal-title').textContent = 'Edit Rule';
+            document.getElementById('rule-name').value = rule.name;
+            document.getElementById('rule-trigger-type').value = rule.trigger_type;
+            document.getElementById('rule-action').value = rule.action;
+            document.getElementById('rule-enabled').checked = rule.enabled;
+            
+            // Set conditions
+            if (rule.trigger_type === 'time_based') {
+                document.getElementById('completion-threshold').value = rule.conditions.completion_threshold || 100;
+            } else if (rule.trigger_type === 'sensor_based') {
+                for (const [sensor, condition] of Object.entries(rule.conditions)) {
+                    const operatorSelect = document.querySelector(`[data-sensor="${sensor}"].condition-operator`);
+                    const valueInput = document.querySelector(`[data-sensor="${sensor}"].condition-value`);
+                    if (operatorSelect) operatorSelect.value = condition.operator || '';
+                    if (valueInput) valueInput.value = condition.threshold || '';
+                }
+            }
+            
+            populateChamberSelection(rule.target_environments);
+            updateTriggerOptions();
+            document.getElementById('rule-modal').style.display = 'block';
+        }
+
+        function populateChamberSelection(selectedIds = []) {
+            const container = document.getElementById('chamber-selection');
+            container.innerHTML = environments.filter(env => env.species_id).map(env => `
+                <label class="chamber-checkbox">
+                    <input type="checkbox" value="${env.id}" ${selectedIds.includes(env.id) ? 'checked' : ''}>
+                    <span>${env.name}</span>
+                </label>
+            `).join('');
+        }
+
+        function updateTriggerOptions() {
+            const triggerType = document.getElementById('rule-trigger-type').value;
+            document.getElementById('time-based-options').style.display = 
+                triggerType === 'time_based' ? 'block' : 'none';
+            document.getElementById('sensor-based-options').style.display = 
+                triggerType === 'sensor_based' ? 'block' : 'none';
+        }
+
+        async function saveRule() {
+            const formData = {
+                name: document.getElementById('rule-name').value,
+                enabled: document.getElementById('rule-enabled').checked,
+                trigger_type: document.getElementById('rule-trigger-type').value,
+                action: document.getElementById('rule-action').value,
+                target_environments: Array.from(document.querySelectorAll('#chamber-selection input:checked'))
+                    .map(cb => parseInt(cb.value)),
+                conditions: {}
+            };
+
+            // Build conditions based on trigger type
+            if (formData.trigger_type === 'time_based') {
+                formData.conditions.completion_threshold = parseInt(document.getElementById('completion-threshold').value);
+            } else if (formData.trigger_type === 'sensor_based') {
+                const sensors = ['temperature', 'humidity', 'co2'];
+                for (const sensor of sensors) {
+                    const operator = document.querySelector(`[data-sensor="${sensor}"].condition-operator`).value;
+                    const threshold = document.querySelector(`[data-sensor="${sensor}"].condition-value`).value;
+                    if (operator && threshold) {
+                        formData.conditions[sensor] = { operator, threshold: parseFloat(threshold) };
+                    }
+                }
+            }
+
+            try {
+                const url = editingRuleId 
+                    ? `${API_BASE_URL}/automation/growth-rules/${editingRuleId}`
+                    : `${API_BASE_URL}/automation/growth-rules`;
+                const method = editingRuleId ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                if (response.ok) {
+                    await loadGrowthRules();
+                    renderGrowthRules();
+                    closeRuleModal();
+                } else {
+                    throw new Error('Failed to save rule');
+                }
+            } catch (error) {
+                console.error('Error saving rule:', error);
+                alert('Failed to save rule');
+            }
+        }
+
+        async function toggleRule(ruleId) {
+            const rule = growthRules.find(r => r.id === ruleId);
+            if (!rule) return;
+            
+            rule.enabled = !rule.enabled;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/automation/growth-rules/${ruleId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(rule)
+                });
+                
+                if (response.ok) {
+                    renderGrowthRules();
+                } else {
+                    throw new Error('Failed to toggle rule');
+                }
+            } catch (error) {
+                console.error('Error toggling rule:', error);
+                rule.enabled = !rule.enabled; // Revert
+            }
+        }
+
+        async function deleteRule(ruleId) {
+            if (!confirm('Are you sure you want to delete this rule?')) return;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/automation/growth-rules/${ruleId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    await loadGrowthRules();
+                    renderGrowthRules();
+                } else {
+                    throw new Error('Failed to delete rule');
+                }
+            } catch (error) {
+                console.error('Error deleting rule:', error);
+                alert('Failed to delete rule');
+            }
+        }
+
+        function closeRuleModal() {
+            document.getElementById('rule-modal').style.display = 'none';
+        }
+
+        function clearActionHistory() {
+            if (confirm('Clear all automation history?')) {
+                actionHistory = [];
+                localStorage.removeItem('automation_history');
+                renderActionHistory();
+            }
+        }
+    </script>
+
+    <style>
+        .auto-progression-panel {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .setting-row:last-child {
+            border-bottom: none;
+        }
+
+        .setting-info h3 {
+            margin: 0 0 5px 0;
+            color: #495057;
+        }
+
+        .setting-info p {
+            margin: 0;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .setting-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .toggle-switch.small {
+            width: 44px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch.small .slider:before {
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+        }
+
+        input:checked + .slider {
+            background-color: #28a745;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .toggle-switch.small input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        .last-check-info {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e9ecef;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .rule-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #28a745;
+        }
+
+        .rule-card.disabled {
+            border-left-color: #6c757d;
+            opacity: 0.7;
+        }
+
+        .rule-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .rule-header h3 {
+            margin: 0;
+            color: #495057;
+        }
+
+        .rule-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .rule-details {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .rule-info {
+            display: flex;
+            gap: 15px;
+        }
+
+        .rule-type, .rule-action {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .rule-type {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .rule-action {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+
+        .rule-conditions, .rule-targets {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        .action-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .action-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #28a745;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            margin-right: 15px;
+        }
+
+        .action-details {
+            flex: 1;
+        }
+
+        .action-title {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 4px;
+        }
+
+        .action-description {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+
+        .action-time {
+            color: #adb5bd;
+            font-size: 0.8rem;
+        }
+
+        .trigger-options {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .checkbox-label input {
+            margin-right: 8px;
+        }
+    </style>
+</body>
+</html>

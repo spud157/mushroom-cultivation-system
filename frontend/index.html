@@ -17,22 +17,13 @@
                     <h1 class="main-title">M.U.S.H</h1>
                     <div class="header-controls-centered">
                         <button class="btn btn-primary" onclick="refreshData()">
-                            Refresh
+                            <i class="fas fa-sync"></i> Refresh
                         </button>
-                        <button class="btn btn-success" onclick="window.location.href='automation-rules.html'">
-                            Automation Rules
+                        <button class="btn btn-success" onclick="window.location.href='growth-dashboard.html'">
+                            <i class="fas fa-chart-line"></i> Growth Dashboard
                         </button>
-                        <button class="btn btn-info" onclick="window.location.href='alerts.html'">
-                            Alerts & Notifications
-                        </button>
-                        <button class="btn btn-warning" onclick="window.location.href='phase-management.html'">
-                            Phase Management
-                        </button>
-                        <button class="btn btn-secondary" onclick="window.location.href='batch-operations.html'">
-                            Batch Operations
-                        </button>
-                        <button class="btn btn-danger" onclick="window.location.href='sensor-data.html'">
-                            Sensor Data
+                        <button class="btn btn-info" onclick="window.location.href='automation-manager.html'">
+                            <i class="fas fa-cogs"></i> Automation
                         </button>
                         <button class="btn btn-dark" onclick="window.location.href='user-management.html'">
                             User Management
@@ -47,23 +38,44 @@
 
         <!-- Main Content -->
         <main class="main-content">
-            <!-- System Status -->
+            <!-- System Status with Alerts -->
             <section class="system-status">
                 <div class="status-card">
-                    <h3><i class="fas fa-server"></i> System Status</h3>
+                    <h3>System Status & Alerts</h3>
                     <div class="status-indicators">
                         <div class="status-item">
-                            <span class="status-label">Backend:</span>
-                            <span class="status-value" id="backend-status">Connected</span>
-                        </div>
-                        <div class="status-item">
-                            <span class="status-label">Database:</span>
-                            <span class="status-value" id="database-status">Online</span>
-                        </div>
-                        <div class="status-item">
                             <span class="status-label">Active Chambers:</span>
-                            <span class="status-value" id="active-chambers">0</span>
+                            <span class="status-value" id="active-chambers-count">0</span>
                         </div>
+                        <div class="status-item">
+                            <span class="status-label">Species Cultivated:</span>
+                            <span class="status-value" id="species-count">0</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Active Alerts:</span>
+                            <span class="status-value alert-indicator" id="active-alerts-count">0</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">System Status:</span>
+                            <span class="status-value" id="system-status">Online</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Alerts Panel -->
+            <section class="alerts-panel" id="alerts-panel" style="display: none;">
+                <div class="section-header">
+                    <h2><i class="fas fa-bell"></i> System Alerts</h2>
+                    <button class="btn btn-secondary" onclick="toggleAlertsPanel()">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                </div>
+                <div id="alerts-container">
+                    <div class="empty-state">
+                        <i class="fas fa-check-circle"></i>
+                        <h3>No Active Alerts</h3>
+                        <p>All systems operating normally</p>
                     </div>
                 </div>
             </section>
@@ -128,6 +140,33 @@
                     <!-- Species cards will be dynamically generated here -->
                 </div>
             </section>
+
+            <!-- Sensor Data Section -->
+            <section class="sensor-data-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-thermometer-half"></i> Sensor Monitoring</h2>
+                    <div class="header-controls">
+                        <button class="btn btn-sm btn-primary" onclick="app.refreshSensorData()">Refresh Data</button>
+                        <button class="btn btn-sm btn-warning" onclick="app.calibrateSensors()">Calibrate Sensors</button>
+                        <button class="btn btn-sm btn-info" onclick="app.exportSensorData()">Export Data</button>
+                        <button class="btn btn-sm btn-secondary" onclick="app.toggleSensorSection()" id="sensor-toggle">
+                            [-] Collapse
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Tab Navigation -->
+                <div class="sensor-tabs" id="sensor-tabs">
+                    <button class="tab-btn active" onclick="app.showSensorTab('live')">Live Data</button>
+                    <button class="tab-btn" onclick="app.showSensorTab('control')">Device Control</button>
+                    <button class="tab-btn" onclick="app.showSensorTab('history')">Data History</button>
+                </div>
+
+                <!-- Content Area -->
+                <div id="sensor-content" class="tab-content">
+                    <div class="loading-message">Loading sensor data...</div>
+                </div>
+            </section>
         </main>
         
         <!-- Advanced Feature Modals -->
@@ -150,6 +189,102 @@
             <div class="modal-footer">
                 <button class="btn btn-primary" onclick="createAlert()">Create Alert</button>
                 <button class="btn btn-secondary" onclick="closeModal('alerts-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Species Modal -->
+    <div id="add-species-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Species</h3>
+                <span class="close" onclick="closeModal('add-species-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="add-species-form">
+                    <div class="form-group">
+                        <label for="species-name">Species Name *</label>
+                        <input type="text" id="species-name" class="form-input" placeholder="e.g., Oyster Mushroom" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="species-scientific-name">Scientific Name</label>
+                        <input type="text" id="species-scientific-name" class="form-input" placeholder="e.g., Pleurotus ostreatus">
+                    </div>
+                    <div class="form-group">
+                        <label for="species-description">Description</label>
+                        <textarea id="species-description" class="form-input" rows="3" placeholder="Brief description of the species"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="species-difficulty">Difficulty Level</label>
+                        <select id="species-difficulty" class="form-select">
+                            <option value="beginner">Beginner</option>
+                            <option value="intermediate">Intermediate</option>
+                            <option value="advanced">Advanced</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="species-grow-time">Typical Grow Time (days)</label>
+                        <input type="number" id="species-grow-time" class="form-input" placeholder="30" min="1" max="365">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="app.saveNewSpecies()">Add Species</button>
+                <button class="btn btn-secondary" onclick="closeModal('add-species-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Species Assignment Modal -->
+    <div id="species-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Assign Species to <span id="selected-chamber-name">Chamber</span></h3>
+                <span class="close" onclick="closeModal('species-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="species-options" class="species-options">
+                    <!-- Species options will be populated by JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="app.assignSpecies()">Assign Species</button>
+                <button class="btn btn-secondary" onclick="closeModal('species-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chamber Details Modal -->
+    <div id="chamber-modal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3 id="chamber-name">Chamber Details</h3>
+                <span class="close" onclick="closeModal('chamber-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="chamber-details">
+                    <div class="detail-section">
+                        <h4>Status</h4>
+                        <span id="chamber-status" class="status">Active</span>
+                    </div>
+                    <div class="detail-section">
+                        <h4>Current Sensor Readings</h4>
+                        <div id="sensor-data" class="sensor-data">
+                            <!-- Sensor data will be populated by JavaScript -->
+                        </div>
+                    </div>
+                    <div class="detail-section">
+                        <h4>Actions</h4>
+                        <div class="chamber-actions">
+                            <button class="btn btn-primary" onclick="app.openSpeciesModal(app.selectedChamber?.id)">Assign Species</button>
+                            <button class="btn btn-warning" onclick="app.simulateSensorData(app.selectedChamber?.id)">Update Sensors</button>
+                            <button class="btn btn-info" onclick="app.calibrateDevice(app.selectedChamber?.id)">Calibrate</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('chamber-modal')">Close</button>
             </div>
         </div>
     </div>
@@ -261,7 +396,7 @@
         <span class="trademark-text"> Kroll Management LLC</span>
     </div>
 
-    <script src="simple_app.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
 
@@ -545,6 +680,6 @@
         </div>
     </div>
 
-    <script src="simple_app.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
