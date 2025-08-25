@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M.U.S.H - User Management</title>
+    <link rel="stylesheet" href="terminal-status.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header-section">
+            <div class="header-content">
+                <div class="dashboard-header">
+                    <h1 class="main-title">M.U.S.H</h1>
+                    <div class="header-controls-centered">
+                        <button class="btn btn-primary" onclick="window.location.href='index.html'">
+                            Dashboard
+                        </button>
+                        <button class="btn btn-success" onclick="window.location.href='automation-rules.html'">
+                            Automation Rules
+                        </button>
+                        <button class="btn btn-info" onclick="window.location.href='alerts.html'">
+                            Alerts & Notifications
+                        </button>
+                        <button class="btn btn-warning" onclick="window.location.href='phase-management.html'">
+                            Phase Management
+                        </button>
+                        <button class="btn btn-secondary" onclick="window.location.href='batch-operations.html'">
+                            Batch Operations
+                        </button>
+                        <button class="btn btn-danger" onclick="window.location.href='sensor-data.html'">
+                            Sensor Data
+                        </button>
+                        <button class="btn btn-dark active" onclick="window.location.href='user-management.html'">
+                            User Management
+                        </button>
+                        <button class="btn btn-light" onclick="logout()">
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- System Status -->
+            <section class="system-status">
+                <div class="status-card">
+                    <h3>User Management</h3>
+                    <div class="status-indicators">
+                        <div class="status-item">
+                            <span class="status-label">Total Users:</span>
+                            <span class="status-value" id="total-users-count">0</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Active Sessions:</span>
+                            <span class="status-value" id="active-sessions-count">0</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">System Access:</span>
+                            <span class="status-value" id="user-system-status">Secure</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- User Management Section -->
+            <section class="user-management-section">
+                <div class="section-header">
+                    <h2>Account Management</h2>
+                    <div class="header-controls">
+                        <button class="btn btn-primary" onclick="createUser()">Create User</button>
+                        <button class="btn btn-warning" onclick="manageRoles()">Manage Roles</button>
+                        <button class="btn btn-info" onclick="viewAuditLog()">Audit Log</button>
+                    </div>
+                </div>
+                
+                <!-- Tab Navigation -->
+                <div class="user-tabs">
+                    <button class="tab-btn active" onclick="showUserTab('users')">Users</button>
+                    <button class="tab-btn" onclick="showUserTab('roles')">Roles & Permissions</button>
+                    <button class="tab-btn" onclick="showUserTab('sessions')">Active Sessions</button>
+                </div>
+
+                <!-- Content Area -->
+                <div id="user-content" class="tab-content">
+                    <div class="loading-message">Loading user data...</div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Create User Modal -->
+    <div id="create-user-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New User</h3>
+                <span class="close" onclick="closeModal('create-user-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="create-user-form">
+                    <div class="form-group">
+                        <label>Username:</label>
+                        <input type="text" id="new-username" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email:</label>
+                        <input type="email" id="new-email" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password:</label>
+                        <input type="password" id="new-password" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Role:</label>
+                        <select id="new-role" class="form-select" required>
+                            <option value="viewer">Viewer</option>
+                            <option value="operator">Operator</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('create-user-modal')">Cancel</button>
+                <button class="btn btn-primary" onclick="submitCreateUser()">Create User</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trademark Footer -->
+    <div class="trademark-footer">
+        <span class="trademark-text">© Kroll Management LLC</span>
+    </div>
+
+    <script src="simple_app.js"></script>
+    <script>
+        let users = [];
+        let permissions = {};
+        let sessions = [];
+
+        // Page-specific initialization
+        window.addEventListener('load', async function() {
+            if (!checkAuthentication()) return;
+            
+            await loadUserManagementData();
+            showUserTab('users');
+        });
+
+        async function loadUserManagementData() {
+            try {
+                const [usersResponse, permissionsResponse] = await Promise.all([
+                    fetch(`${API_BASE_URL}/users`),
+                    fetch(`${API_BASE_URL}/auth/permissions`)
+                ]);
+                
+                users = await usersResponse.json();
+                permissions = await permissionsResponse.json();
+                
+                // Mock sessions data
+                sessions = [
+                    { id: 'session_1', username: 'admin', role: 'admin', login_time: '2025-08-11T00:00:00Z', last_activity: '2025-08-11T00:30:00Z', ip: '127.0.0.1' },
+                    { id: 'session_2', username: 'operator', role: 'operator', login_time: '2025-08-11T00:15:00Z', last_activity: '2025-08-11T00:25:00Z', ip: '192.168.1.100' }
+                ];
+            } catch (error) {
+                console.error('Error loading user management data:', error);
+                document.getElementById('user-content').innerHTML = '<div class="error-message">Failed to load user data</div>';
+            }
+        }
+
+        function showUserTab(tab) {
+            const content = document.getElementById('user-content');
+            
+            // Update tab buttons
+            document.querySelectorAll('.user-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            switch(tab) {
+                case 'users':
+                    content.innerHTML = renderUsers(users);
+                    break;
+                case 'roles':
+                    content.innerHTML = renderRoles(permissions);
+                    break;
+                case 'sessions':
+                    content.innerHTML = renderActiveSessions(sessions);
+                    break;
+            }
+        }
+
+        function renderUsers(users) {
+            if (!users.length) return '<div class="empty-state">No users found</div>';
+            
+            return `
+                <div class="users-grid">
+                    ${users.map(user => `
+                        <div class="user-item">
+                            <div class="user-header">
+                                <h5>${user.username}</h5>
+                                <span class="user-status ${user.active ? 'active' : 'inactive'}">${user.active ? 'Active' : 'Inactive'}</span>
+                            </div>
+                            <div class="user-details">
+                                <p><strong>Email:</strong> ${user.email}</p>
+                                <p><strong>Role:</strong> ${user.role}</p>
+                                <p><strong>ID:</strong> ${user.id}</p>
+                            </div>
+                            <div class="user-actions">
+                                <button class="btn btn-sm btn-primary" onclick="editUser(${user.id})">Edit</button>
+                                <button class="btn btn-sm btn-warning" onclick="resetPassword(${user.id})">Reset Password</button>
+                                <button class="btn btn-sm btn-${user.active ? 'danger' : 'success'}" onclick="toggleUserStatus(${user.id})">
+                                    ${user.active ? 'Deactivate' : 'Activate'}
+                                </button>
+                                ${user.role !== 'admin' ? `<button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id})">Delete</button>` : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function renderRoles(permissions) {
+            return `
+                <div class="roles-section">
+                    <div class="roles-overview">
+                        <h4>Role Permissions Overview</h4>
+                        <div class="roles-grid">
+                            ${Object.entries(permissions).map(([role, perms]) => `
+                                <div class="role-item">
+                                    <div class="role-header">
+                                        <h5>${role.toUpperCase()}</h5>
+                                        <span class="permission-count">${perms.length} permissions</span>
+                                    </div>
+                                    <div class="permissions-list">
+                                        ${perms.map(perm => `<span class="permission-tag">${perm}</span>`).join('')}
+                                    </div>
+                                    <div class="role-actions">
+                                        <button class="btn btn-sm btn-primary" onclick="editRole('${role}')">Edit Role</button>
+                                        <button class="btn btn-sm btn-secondary" onclick="viewRoleUsers('${role}')">View Users</button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <div class="permissions-matrix">
+                        <h4>Permissions Matrix</h4>
+                        <div class="matrix-table">
+                            <table class="permissions-table">
+                                <thead>
+                                    <tr>
+                                        <th>Permission</th>
+                                        <th>Admin</th>
+                                        <th>Operator</th>
+                                        <th>Viewer</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${getAllPermissions().map(perm => `
+                                        <tr>
+                                            <td>${perm}</td>
+                                            <td>${permissions.admin?.includes(perm) ? '✓' : '✗'}</td>
+                                            <td>${permissions.operator?.includes(perm) ? '✓' : '✗'}</td>
+                                            <td>${permissions.viewer?.includes(perm) ? '✓' : '✗'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderActiveSessions(sessions) {
+            if (!sessions.length) return '<div class="empty-state">No active sessions</div>';
+            
+            return `
+                <div class="sessions-section">
+                    <div class="sessions-stats">
+                        <div class="stat-item">
+                            <span class="stat-value">${sessions.length}</span>
+                            <span class="stat-label">Active Sessions</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">${new Set(sessions.map(s => s.username)).size}</span>
+                            <span class="stat-label">Unique Users</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">${new Set(sessions.map(s => s.ip)).size}</span>
+                            <span class="stat-label">Unique IPs</span>
+                        </div>
+                    </div>
+                    
+                    <div class="sessions-grid">
+                        ${sessions.map(session => `
+                            <div class="session-item">
+                                <div class="session-header">
+                                    <h5>${session.username}</h5>
+                                    <span class="session-role">${session.role}</span>
+                                </div>
+                                <div class="session-details">
+                                    <p><strong>Session ID:</strong> ${session.id}</p>
+                                    <p><strong>IP Address:</strong> ${session.ip}</p>
+                                    <p><strong>Login Time:</strong> ${new Date(session.login_time).toLocaleString()}</p>
+                                    <p><strong>Last Activity:</strong> ${new Date(session.last_activity).toLocaleString()}</p>
+                                </div>
+                                <div class="session-actions">
+                                    <button class="btn btn-sm btn-warning" onclick="viewSessionDetails('${session.id}')">Details</button>
+                                    <button class="btn btn-sm btn-danger" onclick="terminateSession('${session.id}')">Terminate</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function getAllPermissions() {
+            const allPerms = new Set();
+            Object.values(permissions).forEach(perms => {
+                perms.forEach(perm => allPerms.add(perm));
+            });
+            return Array.from(allPerms).sort();
+        }
+
+        // Action functions
+        function createUser() {
+            document.getElementById('create-user-modal').style.display = 'block';
+        }
+
+        function submitCreateUser() {
+            const username = document.getElementById('new-username').value;
+            const email = document.getElementById('new-email').value;
+            const password = document.getElementById('new-password').value;
+            const role = document.getElementById('new-role').value;
+            
+            if (!username || !email || !password || !role) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            // Mock user creation
+            const newUser = {
+                id: users.length + 1,
+                username,
+                email,
+                role,
+                active: true
+            };
+            
+            users.push(newUser);
+            closeModal('create-user-modal');
+            showUserTab('users');
+            alert(`User ${username} created successfully!`);
+            
+            // Clear form
+            document.getElementById('create-user-form').reset();
+        }
+
+        function editUser(userId) {
+            const user = users.find(u => u.id === userId);
+            alert(`Editing user: ${user.username}`);
+        }
+
+        function resetPassword(userId) {
+            const user = users.find(u => u.id === userId);
+            if (confirm(`Reset password for ${user.username}?`)) {
+                alert(`Password reset email sent to ${user.email}`);
+            }
+        }
+
+        function toggleUserStatus(userId) {
+            const user = users.find(u => u.id === userId);
+            const action = user.active ? 'deactivate' : 'activate';
+            
+            if (confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} user ${user.username}?`)) {
+                user.active = !user.active;
+                showUserTab('users');
+                alert(`User ${user.username} ${action}d successfully!`);
+            }
+        }
+
+        function deleteUser(userId) {
+            const user = users.find(u => u.id === userId);
+            if (confirm(`Delete user ${user.username}? This action cannot be undone.`)) {
+                users = users.filter(u => u.id !== userId);
+                showUserTab('users');
+                alert(`User ${user.username} deleted successfully!`);
+            }
+        }
+
+        function manageRoles() {
+            showUserTab('roles');
+        }
+
+        function viewAuditLog() {
+            alert('Audit Log functionality - Coming Soon!');
+        }
+
+        function editRole(role) {
+            alert(`Editing role: ${role}`);
+        }
+
+        function viewRoleUsers(role) {
+            const roleUsers = users.filter(u => u.role === role);
+            alert(`Users with ${role} role: ${roleUsers.map(u => u.username).join(', ')}`);
+        }
+
+        function viewSessionDetails(sessionId) {
+            const session = sessions.find(s => s.id === sessionId);
+            alert(`Session Details:\nUser: ${session.username}\nIP: ${session.ip}\nLogin: ${session.login_time}`);
+        }
+
+        function terminateSession(sessionId) {
+            const session = sessions.find(s => s.id === sessionId);
+            if (confirm(`Terminate session for ${session.username}?`)) {
+                sessions = sessions.filter(s => s.id !== sessionId);
+                showUserTab('sessions');
+                alert(`Session terminated for ${session.username}`);
+            }
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Make functions globally accessible
+        window.showUserTab = showUserTab;
+        window.createUser = createUser;
+        window.submitCreateUser = submitCreateUser;
+        window.manageRoles = manageRoles;
+        window.viewAuditLog = viewAuditLog;
+        window.closeModal = closeModal;
+    </script>
+</body>
+</html>

@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mushroom Cultivation Automation System</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="terminal-status.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="dashboard-header">
+                    <h1 class="main-title">M.U.S.H</h1>
+                    <div class="header-controls-centered">
+                        <button class="btn btn-primary" onclick="refreshData()">
+                            Refresh
+                        </button>
+                        <button class="btn btn-success" onclick="window.location.href='automation-rules.html'">
+                            Automation Rules
+                        </button>
+                        <button class="btn btn-info" onclick="window.location.href='alerts.html'">
+                            Alerts & Notifications
+                        </button>
+                        <button class="btn btn-warning" onclick="window.location.href='phase-management.html'">
+                            Phase Management
+                        </button>
+                        <button class="btn btn-secondary" onclick="window.location.href='batch-operations.html'">
+                            Batch Operations
+                        </button>
+                        <button class="btn btn-danger" onclick="window.location.href='sensor-data.html'">
+                            Sensor Data
+                        </button>
+                        <button class="btn btn-dark" onclick="window.location.href='user-management.html'">
+                            User Management
+                        </button>
+                        <button class="btn btn-light" onclick="logout()">
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- System Status -->
+            <section class="system-status">
+                <div class="status-card">
+                    <h3><i class="fas fa-server"></i> System Status</h3>
+                    <div class="status-indicators">
+                        <div class="status-item">
+                            <span class="status-label">Backend:</span>
+                            <span class="status-value" id="backend-status">Connected</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Database:</span>
+                            <span class="status-value" id="database-status">Online</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Active Chambers:</span>
+                            <span class="status-value" id="active-chambers">0</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Analytics Dashboard Section -->
+            <section class="analytics-section">
+                <div class="section-header">
+                    <h2>Cultivation Analytics</h2>
+                    <button class="btn btn-secondary" onclick="toggleAnalytics()" id="analyticsToggle">[-] Collapse</button>
+                </div>
+                <div class="analytics-grid" id="analyticsGrid">
+                    <div class="analytics-card">
+                        <h4>Total Chambers</h4>
+                        <span class="analytics-value" id="totalChambers">0</span>
+                        <span class="analytics-label">Active Growing</span>
+                    </div>
+                    <div class="analytics-card">
+                        <h4>Species Diversity</h4>
+                        <span class="analytics-value" id="speciesDiversity">6</span>
+                        <span class="analytics-label">Available Types</span>
+                    </div>
+                    <div class="analytics-card">
+                        <h4>Automation Rules</h4>
+                        <span class="analytics-value" id="activeRules">8</span>
+                        <span class="analytics-label">Running</span>
+                    </div>
+                    <div class="analytics-card">
+                        <h4>System Uptime</h4>
+                        <span class="analytics-value" id="systemUptime">24h</span>
+                        <span class="analytics-label">Continuous</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Environment Chambers Grid -->
+            <section class="chambers-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-home"></i> Grow Chambers</h2>
+                    <button class="btn btn-primary" onclick="addNewChamber()">
+                        <i class="fas fa-plus"></i> Add Chamber
+                    </button>
+                </div>
+                <div class="chambers-grid" id="chambers-grid">
+                    <!-- Chamber tiles will be dynamically generated here -->
+                </div>
+            </section>
+
+            <!-- Species Library -->
+            <section class="species-section">
+                <div class="species-header-controls">
+                    <h2><i class="fas fa-leaf"></i> Species Library</h2>
+                    <div class="species-controls">
+                        <button class="btn btn-sm btn-primary" onclick="showAddSpeciesModal()">
+                            Add Species
+                        </button>
+                        <button class="btn btn-sm btn-secondary" onclick="toggleSpeciesLibrary()" id="species-toggle">
+                            [-] Collapse
+                        </button>
+                    </div>
+                </div>
+                <div class="species-grid" id="species-grid">
+                    <!-- Species cards will be dynamically generated here -->
+                </div>
+            </section>
+        </main>
+        
+        <!-- Advanced Feature Modals -->
+    
+    <!-- Alerts & Notifications Modal -->
+    <div id="alerts-modal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3>Alerts & Notifications</h3>
+                <span class="close" onclick="closeModal('alerts-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="alerts-tabs">
+                    <button class="tab-btn active" onclick="showAlertsTab('active')">Active Alerts</button>
+                    <button class="tab-btn" onclick="showAlertsTab('history')">Alert History</button>
+                    <button class="tab-btn" onclick="showAlertsTab('channels')">Notification Channels</button>
+                </div>
+                <div id="alerts-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="createAlert()">Create Alert</button>
+                <button class="btn btn-secondary" onclick="closeModal('alerts-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Phase Management Modal -->
+    <div id="phase-management-modal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3>Phase Management</h3>
+                <span class="close" onclick="closeModal('phase-management-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="phase-tabs">
+                    <button class="tab-btn active" onclick="showPhaseTab('overview')">Phase Overview</button>
+                    <button class="tab-btn" onclick="showPhaseTab('schedule')">Phase Scheduling</button>
+                    <button class="tab-btn" onclick="showPhaseTab('harvest')">Harvest Tracking</button>
+                </div>
+                <div id="phase-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="schedulePhaseChange()">Schedule Phase Change</button>
+                <button class="btn btn-success" onclick="recordHarvest()">Record Harvest</button>
+                <button class="btn btn-secondary" onclick="closeModal('phase-management-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Batch Operations Modal -->
+    <div id="batch-operations-modal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3>Batch Operations</h3>
+                <span class="close" onclick="closeModal('batch-operations-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="batch-selection">
+                    <h4>Select Chambers:</h4>
+                    <div id="chamber-selection"></div>
+                </div>
+                <div class="batch-actions">
+                    <h4>Bulk Actions:</h4>
+                    <select id="bulk-action-select" class="form-select">
+                        <option value="">Select Action</option>
+                        <option value="set_temperature">Set Temperature</option>
+                        <option value="set_humidity">Set Humidity</option>
+                        <option value="assign_species">Assign Species</option>
+                        <option value="change_phase">Change Phase</option>
+                        <option value="emergency_shutdown">Emergency Shutdown</option>
+                    </select>
+                    <input type="text" id="bulk-action-value" placeholder="Value" class="form-input">
+                </div>
+                <div id="batch-results"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="executeBulkAction()">Execute Action</button>
+                <button class="btn btn-secondary" onclick="closeModal('batch-operations-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sensor Data Modal -->
+    <div id="sensor-data-modal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3>Real-Time Sensor Data</h3>
+                <span class="close" onclick="closeModal('sensor-data-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="sensor-tabs">
+                    <button class="tab-btn active" onclick="showSensorTab('live')">Live Data</button>
+                    <button class="tab-btn" onclick="showSensorTab('control')">Device Control</button>
+                    <button class="tab-btn" onclick="showSensorTab('history')">Data History</button>
+                </div>
+                <div id="sensor-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="refreshSensorData()">Refresh Data</button>
+                <button class="btn btn-warning" onclick="calibrateSensors()">Calibrate Sensors</button>
+                <button class="btn btn-secondary" onclick="closeModal('sensor-data-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- User Management Modal -->
+    <div id="user-management-modal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3>User Management</h3>
+                <span class="close" onclick="closeModal('user-management-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="user-tabs">
+                    <button class="tab-btn active" onclick="showUserTab('users')">Users</button>
+                    <button class="tab-btn" onclick="showUserTab('roles')">Roles & Permissions</button>
+                    <button class="tab-btn" onclick="showUserTab('sessions')">Active Sessions</button>
+                </div>
+                <div id="user-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="createUser()">Create User</button>
+                <button class="btn btn-warning" onclick="manageRoles()">Manage Roles</button>
+                <button class="btn btn-secondary" onclick="closeModal('user-management-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trademark Footer -->
+    <div class="trademark-footer">
+        <span class="trademark-text"> Kroll Management LLC</span>
+    </div>
+
+    <script src="simple_app.js"></script>
+</body>
+</html>
+
+    <!-- Modals -->
+    <!-- Add Species Modal -->
+    <div id="addSpeciesModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Species</h2>
+                <span class="close" onclick="closeAddSpeciesModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="addSpeciesForm">
+                    <!-- Basic Information -->
+                    <div class="form-section">
+                        <h3>Basic Information</h3>
+                        <div class="form-group">
+                            <label for="speciesName">Species Name:</label>
+                            <input type="text" id="speciesName" name="name" required placeholder="e.g., Lion's Mane, Shiitake">
+                        </div>
+                        <div class="form-group">
+                            <label for="scientificName">Scientific Name:</label>
+                            <input type="text" id="scientificName" name="scientific_name" placeholder="e.g., Hericium erinaceus">
+                        </div>
+                        <div class="form-group">
+                            <label for="speciesDescription">Description:</label>
+                            <textarea id="speciesDescription" name="description" placeholder="Brief description of the mushroom species"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="difficultyLevel">Difficulty Level:</label>
+                            <select id="difficultyLevel" name="difficulty_level">
+                                <option value="">Select Difficulty</option>
+                                <option value="Beginner">Beginner</option>
+                                <option value="Intermediate">Intermediate</option>
+                                <option value="Advanced">Advanced</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="growTime">Typical Grow Time (days):</label>
+                            <input type="number" id="growTime" name="typical_grow_time_days" min="1" max="365" placeholder="e.g., 14">
+                        </div>
+                    </div>
+                    
+                    <!-- Environmental Parameters -->
+                    <div class="form-section">
+                        <h3>Environmental Parameters</h3>
+                        <div class="auto-generate-section">
+                            <button type="button" class="btn btn-sm btn-success" onclick="autoGenerateParameters()">
+                                🤖 Auto-Generate Optimal Parameters
+                            </button>
+                            <p class="help-text">Click to automatically generate optimal environmental parameters based on our mushroom database</p>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="tempMin">Temperature Min (°C):</label>
+                                <input type="number" id="tempMin" name="default_temperature_min" min="0" max="50" placeholder="e.g., 18">
+                            </div>
+                            <div class="form-group">
+                                <label for="tempMax">Temperature Max (°C):</label>
+                                <input type="number" id="tempMax" name="default_temperature_max" min="0" max="50" placeholder="e.g., 24">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="humidityMin">Humidity Min (%):</label>
+                                <input type="number" id="humidityMin" name="default_humidity_min" min="0" max="100" placeholder="e.g., 85">
+                            </div>
+                            <div class="form-group">
+                                <label for="humidityMax">Humidity Max (%):</label>
+                                <input type="number" id="humidityMax" name="default_humidity_max" min="0" max="100" placeholder="e.g., 95">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="co2Min">CO2 Min (PPM):</label>
+                                <input type="number" id="co2Min" name="default_co2_min" min="0" max="5000" placeholder="e.g., 500">
+                            </div>
+                            <div class="form-group">
+                                <label for="co2Max">CO2 Max (PPM):</label>
+                                <input type="number" id="co2Max" name="default_co2_max" min="0" max="5000" placeholder="e.g., 1000">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="faeCycles">FAE Cycles/Day:</label>
+                                <input type="number" id="faeCycles" name="default_fae_cycles_per_day" min="1" max="24" placeholder="e.g., 4">
+                            </div>
+                            <div class="form-group">
+                                <label for="lightHours">Light Hours/Day:</label>
+                                <input type="number" id="lightHours" name="default_light_hours_per_day" min="0" max="24" placeholder="e.g., 12">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeAddSpeciesModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createSpecies()">Add Species</button>
+            </div>
+        </div>
+    </div>
+    <!-- Species Assignment Modal -->
+    <div id="species-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Assign Species to Chamber</h3>
+                <span class="close" onclick="closeModal('species-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="chamber-info">
+                    <h4 id="selected-chamber-name">Environment 1</h4>
+                </div>
+                <div class="species-selection">
+                    <h4>Select Species:</h4>
+                    <div id="species-options" class="species-options">
+                        <!-- Species options will be populated here -->
+                    </div>
+                </div>
+                <div class="phase-selection">
+                    <h4>Starting Phase:</h4>
+                    <select id="phase-select" class="form-select">
+                        <option value="">Select Phase</option>
+                    </select>
+                </div>
+                <div class="header-controls-centered">
+                    <button class="btn btn-primary" onclick="window.location.href='automation-rules.html'">Automation Rules</button>
+                    <button class="btn btn-success" onclick="showAddSpeciesModal()">Add Species</button>
+                    <button class="btn btn-info" onclick="showAlertsModal()">Alerts & Notifications</button>
+                    <button class="btn btn-warning" onclick="showPhaseManagementModal()">Phase Management</button>
+                    <button class="btn btn-secondary" onclick="showBatchOperationsModal()">Batch Operations</button>
+                    <button class="btn btn-danger" onclick="showSensorDataModal()">Sensor Data</button>
+                    <button class="btn btn-dark" onclick="showUserManagementModal()">User Management</button>
+                    <button class="btn btn-light" onclick="logout()">Logout</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('species-modal')">Cancel</button>
+                <button class="btn btn-primary" onclick="assignSpecies()">Assign Species</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chamber Details Modal -->
+    <div id="chamber-modal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3 id="chamber-modal-title">Chamber Details</h3>
+                <span class="close" onclick="closeModal('chamber-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="chamber-details-grid">
+                    <!-- Environmental readings -->
+                    <div class="detail-section">
+                        <h4><i class="fas fa-thermometer-half"></i> Environmental Readings</h4>
+                        <div class="readings-grid">
+                            <div class="reading-item">
+                                <span class="reading-label">Temperature:</span>
+                                <span class="reading-value" id="chamber-temperature">--°C</span>
+                            </div>
+                            <div class="reading-item">
+                                <span class="reading-label">Humidity:</span>
+                                <span class="reading-value" id="chamber-humidity">--%</span>
+                            </div>
+                            <div class="reading-item">
+                                <span class="reading-label">CO₂:</span>
+                                <span class="reading-value" id="chamber-co2">-- ppm</span>
+                            </div>
+                            <div class="reading-item">
+                                <span class="reading-label">Light:</span>
+                                <span class="reading-value" id="chamber-light">-- lux</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actuator controls -->
+                    <div class="detail-section">
+                        <h4><i class="fas fa-sliders-h"></i> Actuator Controls</h4>
+                        <div class="controls-grid">
+                            <div class="control-item">
+                                <span class="control-label">Fan:</span>
+                                <button class="btn-toggle" id="fan-toggle" onclick="toggleActuator('fan')">OFF</button>
+                            </div>
+                            <div class="control-item">
+                                <span class="control-label">Humidifier:</span>
+                                <button class="btn-toggle" id="humidifier-toggle" onclick="toggleActuator('humidifier')">OFF</button>
+                            </div>
+                            <div class="control-item">
+                                <span class="control-label">Heat Mat:</span>
+                                <button class="btn-toggle" id="heat-mat-toggle" onclick="toggleActuator('heat_mat')">OFF</button>
+                            </div>
+                            <div class="control-item">
+                                <span class="control-label">CO₂ Valve:</span>
+                                <button class="btn-toggle" id="co2-valve-toggle" onclick="toggleActuator('co2_valve')">OFF</button>
+                            </div>
+                            <div class="control-item">
+                                <span class="control-label">Light:</span>
+                                <button class="btn-toggle" id="light-toggle" onclick="toggleActuator('light')">OFF</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Phase management -->
+                    <div class="detail-section">
+                        <h4><i class="fas fa-clock"></i> Phase Management</h4>
+                        <div class="phase-info">
+                            <div class="phase-current">
+                                <span class="phase-label">Current Phase:</span>
+                                <span class="phase-value" id="current-phase">--</span>
+                            </div>
+                            <div class="phase-elapsed">
+                                <span class="phase-label">Elapsed Time:</span>
+                                <span class="phase-value" id="phase-elapsed">-- days</span>
+                            </div>
+                            <div class="phase-controls">
+                                <select id="phase-change-select" class="form-select">
+                                    <option value="">Change Phase</option>
+                                </select>
+                                <button class="btn btn-primary" onclick="changePhase()">Change</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" onclick="unassignSpecies()">Unassign Species</button>
+                <button class="btn btn-secondary" onclick="closeModal('chamber-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Chamber Modal -->
+    <div id="addChamberModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Chamber</h2>
+                <span class="close" onclick="closeAddChamberModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="addChamberForm">
+                    <div class="form-group">
+                        <label for="chamberName">Chamber Name:</label>
+                        <input type="text" id="chamberName" name="name" required placeholder="e.g., Chamber A, Grow Room 1">
+                    </div>
+                    <div class="form-group">
+                        <label for="chamberLocation">Location:</label>
+                        <input type="text" id="chamberLocation" name="location" placeholder="e.g., Basement, Greenhouse">
+                    </div>
+                    <div class="form-group">
+                        <label for="chamberDescription">Description:</label>
+                        <textarea id="chamberDescription" name="description" placeholder="Optional description of this chamber"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeAddChamberModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createChamber()">Create Chamber</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mushroom Details Modal -->
+    <div id="mushroomDetailsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="mushroomDetailsTitle">🍄 Mushroom Details</h2>
+                <span class="close" onclick="closeMushroomDetailsModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="mushroomDetailsContent">
+                    <!-- Content will be populated by JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeMushroomDetailsModal()">Close</button>
+                <button type="button" class="btn btn-primary" id="assignMushroomBtn" onclick="assignFromDetails()">Assign to Chamber</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="simple_app.js"></script>
+</body>
+</html>

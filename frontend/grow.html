@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M.U.S.H - Grow Management</title>
+    <link rel="stylesheet" href="terminal-status.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header Navigation -->
+        <header class="header">
+            <div class="header-content">
+                <div class="header-top">
+                    <h1 class="main-title">M.U.S.H</h1>
+                    <div class="user-info">
+                        <span id="welcome-message">Welcome, admin (admin)</span>
+                    </div>
+                </div>
+                <div class="header-controls">
+                    <div class="nav-buttons">
+                        <button class="btn btn-primary" onclick="window.location.href='index.html'">Dashboard</button>
+                        <button class="btn btn-success" onclick="window.location.href='automation-rules.html'">Automation Rules</button>
+                        <button class="btn btn-warning" onclick="window.location.href='alerts.html'">Alerts & Notifications</button>
+                        <button class="btn btn-info" onclick="window.location.href='phase-management.html'">Phase Management</button>
+                        <button class="btn btn-secondary" onclick="window.location.href='batch-operations.html'">Batch Operations</button>
+                        <button class="btn btn-danger" onclick="window.location.href='sensor-data.html'">Sensor Data</button>
+                        <button class="btn btn-dark" onclick="window.location.href='user-management.html'">User Management</button>
+                        <button class="btn btn-light" onclick="logout()">Logout</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- System Status -->
+            <section class="system-status">
+                <div class="status-card">
+                    <h3>Grow Management</h3>
+                    <div class="status-indicators">
+                        <div class="status-item">
+                            <span class="status-label">Active Batches:</span>
+                            <span class="status-value" id="active-batches-count">0</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Available Cells:</span>
+                            <span class="status-value" id="available-cells-count">0</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Total Species:</span>
+                            <span class="status-value" id="total-species-count">0</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Grow Section Navigation -->
+            <section class="grow-navigation">
+                <div class="section-header">
+                    <h2>Batch + Cell Manager</h2>
+                    <div class="header-controls">
+                        <button class="btn btn-primary" onclick="showGrowView('start')">Start Batch</button>
+                        <button class="btn btn-success" onclick="showGrowView('monitor')">Batch Monitor</button>
+                        <button class="btn btn-info" onclick="showGrowView('library')">Species Library</button>
+                        <button class="btn btn-warning" onclick="refreshGrowData()">Refresh</button>
+                    </div>
+                </div>
+                
+                <!-- View Navigation Tabs -->
+                <div class="grow-tabs">
+                    <button class="tab-btn active" onclick="showGrowView('start')" id="start-tab">Start Batch</button>
+                    <button class="tab-btn" onclick="showGrowView('monitor')" id="monitor-tab">Batch Monitor</button>
+                    <button class="tab-btn" onclick="showGrowView('library')" id="library-tab">Species Library</button>
+                </div>
+            </section>
+
+            <!-- Start Batch View -->
+            <section id="start-batch-view" class="grow-view active">
+                <div class="section-header">
+                    <h2>Start New Batch</h2>
+                </div>
+                
+                <div class="start-batch-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Batch Name:</label>
+                            <input type="text" id="batch-name" class="form-input" placeholder="Week 1 - Farm 2">
+                        </div>
+                        <div class="form-group">
+                            <label>Species:</label>
+                            <select id="species-select" class="form-select" onchange="previewSpeciesProfile()">
+                                <option value="">Select Species</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Chamber (Cell):</label>
+                            <select id="chamber-select" class="form-select" onchange="previewChamberInfo()">
+                                <option value="">Select Chamber</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Notes:</label>
+                            <textarea id="batch-notes" class="form-input" rows="3" placeholder="Optional batch notes..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Species Profile Preview -->
+                    <div id="species-preview" class="species-preview" style="display: none;">
+                        <h4>Species Profile Preview</h4>
+                        <div id="species-stages" class="stages-preview"></div>
+                    </div>
+                    
+                    <!-- Chamber Info Preview -->
+                    <div id="chamber-preview" class="chamber-preview" style="display: none;">
+                        <h4>Chamber Information</h4>
+                        <div id="chamber-details" class="chamber-details"></div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button class="btn btn-primary" onclick="createBatch()">Create Batch</button>
+                        <button class="btn btn-success" onclick="createAndStartBatch()">Create & Start Batch</button>
+                        <button class="btn btn-secondary" onclick="clearStartForm()">Clear Form</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Batch Monitor View -->
+            <section id="batch-monitor-view" class="grow-view" style="display: none;">
+                <div class="section-header">
+                    <h2>Batch Monitor</h2>
+                    <div class="header-controls">
+                        <select id="monitor-batch-select" class="form-select" onchange="loadBatchMonitor()">
+                            <option value="">Select Batch to Monitor</option>
+                        </select>
+                        <button class="btn btn-warning" onclick="refreshBatchMonitor()">Refresh</button>
+                    </div>
+                </div>
+                
+                <div id="batch-monitor-content">
+                    <div class="loading-message">Select a batch to monitor</div>
+                </div>
+            </section>
+
+            <!-- Species Library View -->
+            <section id="species-library-view" class="grow-view" style="display: none;">
+                <div class="section-header">
+                    <h2>Species Library</h2>
+                    <div class="header-controls">
+                        <button class="btn btn-primary" onclick="createSpecies()">Create Species</button>
+                        <button class="btn btn-success" onclick="importSpecies()">Import Species</button>
+                        <button class="btn btn-warning" onclick="refreshSpeciesLibrary()">Refresh</button>
+                    </div>
+                </div>
+                
+                <div id="species-library" class="species-library">
+                    <div class="loading-message">Loading species library...</div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Trademark Footer -->
+    <div class="trademark-footer">
+        <span class="trademark-text">© Kroll Management LLC</span>
+    </div>
+
+    <script src="simple_app.js"></script>
+    <script src="grow-manager.js"></script>
+</body>
+</html>

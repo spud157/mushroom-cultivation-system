@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M.U.S.H - Batch Operations</title>
+    <link rel="stylesheet" href="terminal-status.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header-section">
+            <div class="header-content">
+                <div class="dashboard-header">
+                    <h1 class="main-title">M.U.S.H</h1>
+                    <div class="header-controls-centered">
+                        <button class="btn btn-primary" onclick="window.location.href='index.html'">
+                            Dashboard
+                        </button>
+                        <button class="btn btn-success" onclick="window.location.href='automation-rules.html'">
+                            Automation Rules
+                        </button>
+                        <button class="btn btn-info" onclick="window.location.href='alerts.html'">
+                            Alerts & Notifications
+                        </button>
+                        <button class="btn btn-warning" onclick="window.location.href='phase-management.html'">
+                            Phase Management
+                        </button>
+                        <button class="btn btn-secondary active" onclick="window.location.href='batch-operations.html'">
+                            Batch Operations
+                        </button>
+                        <button class="btn btn-danger" onclick="window.location.href='sensor-data.html'">
+                            Sensor Data
+                        </button>
+                        <button class="btn btn-dark" onclick="window.location.href='user-management.html'">
+                            User Management
+                        </button>
+                        <button class="btn btn-light" onclick="logout()">
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- System Status -->
+            <section class="system-status">
+                <div class="status-card">
+                    <h3>Batch Operations</h3>
+                    <div class="status-indicators">
+                        <div class="status-item">
+                            <span class="status-label">Total Chambers:</span>
+                            <span class="status-value" id="total-chambers-count">0</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Selected:</span>
+                            <span class="status-value" id="selected-chambers-count">0</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Operations Today:</span>
+                            <span class="status-value" id="operations-today-count">0</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Chamber Selection Section -->
+            <section class="chamber-selection-section">
+                <div class="section-header">
+                    <h2>Chamber Selection</h2>
+                    <div class="header-controls">
+                        <button class="btn btn-primary" onclick="selectAllChambers()">Select All</button>
+                        <button class="btn btn-secondary" onclick="clearSelection()">Clear All</button>
+                        <button class="btn btn-info" onclick="selectActiveChambers()">Active Only</button>
+                    </div>
+                </div>
+                
+                <div id="chamber-selection" class="chamber-grid">
+                    <div class="loading-message">Loading chambers...</div>
+                </div>
+            </section>
+
+            <!-- Batch Actions Section -->
+            <section class="batch-actions-section">
+                <div class="section-header">
+                    <h2>Bulk Actions</h2>
+                    <button class="btn btn-primary" onclick="executeBulkAction()">Execute Operation</button>
+                </div>
+                
+                <div class="action-form">
+                    <div class="form-group">
+                        <label>Action Type:</label>
+                        <select id="bulk-action-select" class="form-select" onchange="updateActionForm()">
+                            <option value="">Select Action</option>
+                            <option value="set_temperature">Set Temperature</option>
+                            <option value="set_humidity">Set Humidity</option>
+                            <option value="assign_species">Assign Species</option>
+                            <option value="change_phase">Change Phase</option>
+                            <option value="emergency_shutdown">Emergency Shutdown</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="action-value-group" style="display: none;">
+                        <label id="action-value-label">Value:</label>
+                        <input type="text" id="bulk-action-value" placeholder="Enter value" class="form-input">
+                    </div>
+                    <div class="form-group" id="species-select-group" style="display: none;">
+                        <label>Species:</label>
+                        <select id="species-select" class="form-select"></select>
+                    </div>
+                    <div class="form-group" id="phase-select-group" style="display: none;">
+                        <label>Phase:</label>
+                        <select id="phase-select" class="form-select">
+                            <option value="inoculation">Inoculation</option>
+                            <option value="colonization">Colonization</option>
+                            <option value="pinning">Pinning</option>
+                            <option value="fruiting">Fruiting</option>
+                            <option value="harvest">Harvest</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Results -->
+                <div id="batch-results" class="batch-results" style="display: none;">
+                    <h4>Operation Results:</h4>
+                    <div id="results-content"></div>
+                </div>
+            </section>
+
+            <!-- Operation History Section -->
+            <section class="history-section">
+                <div class="section-header">
+                    <h2>Operation History</h2>
+                </div>
+                
+                <div id="operation-history-list">
+                    <div class="empty-state">No recent batch operations</div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Trademark Footer -->
+    <div class="trademark-footer">
+        <span class="trademark-text">© Kroll Management LLC</span>
+    </div>
+
+    <script src="simple_app.js"></script>
+    <script>
+        let environments = [];
+        let species = [];
+
+        // Page-specific initialization
+        window.addEventListener('load', async function() {
+            if (!checkAuthentication()) return;
+            
+            await loadBatchOperationsData();
+        });
+
+        async function loadBatchOperationsData() {
+            try {
+                const [environmentsResponse, speciesResponse] = await Promise.all([
+                    fetch(`${API_BASE_URL}/environments`),
+                    fetch(`${API_BASE_URL}/species`)
+                ]);
+                
+                environments = await environmentsResponse.json();
+                species = await speciesResponse.json();
+                
+                renderChamberSelection();
+                renderSpeciesOptions();
+            } catch (error) {
+                console.error('Error loading batch operations data:', error);
+                document.getElementById('chamber-selection').innerHTML = '<div class="error-message">Failed to load chamber data</div>';
+            }
+        }
+
+        function renderChamberSelection() {
+            const content = document.getElementById('chamber-selection');
+            content.innerHTML = environments.map(env => `
+                <label class="chamber-checkbox">
+                    <input type="checkbox" value="${env.id}" class="chamber-select" onchange="updateSelectionCount()">
+                    <div class="chamber-info">
+                        <h5>${env.name}</h5>
+                        <p>Species: ${env.species_id || 'Unassigned'}</p>
+                        <p>Phase: ${env.current_phase || 'N/A'}</p>
+                        <p>Temp: ${env.temperature}°C | Humidity: ${env.humidity}%</p>
+                    </div>
+                </label>
+            `).join('');
+        }
+
+        function renderSpeciesOptions() {
+            const speciesSelect = document.getElementById('species-select');
+            speciesSelect.innerHTML = species.map(s => 
+                `<option value="${s.id}">${s.name}</option>`
+            ).join('');
+        }
+
+        function updateActionForm() {
+            const action = document.getElementById('bulk-action-select').value;
+            const valueGroup = document.getElementById('action-value-group');
+            const speciesGroup = document.getElementById('species-select-group');
+            const phaseGroup = document.getElementById('phase-select-group');
+            const valueLabel = document.getElementById('action-value-label');
+            
+            // Hide all groups first
+            valueGroup.style.display = 'none';
+            speciesGroup.style.display = 'none';
+            phaseGroup.style.display = 'none';
+            
+            switch(action) {
+                case 'set_temperature':
+                    valueGroup.style.display = 'block';
+                    valueLabel.textContent = 'Temperature (°C):';
+                    document.getElementById('bulk-action-value').placeholder = 'e.g., 22';
+                    break;
+                case 'set_humidity':
+                    valueGroup.style.display = 'block';
+                    valueLabel.textContent = 'Humidity (%):';
+                    document.getElementById('bulk-action-value').placeholder = 'e.g., 85';
+                    break;
+                case 'assign_species':
+                    speciesGroup.style.display = 'block';
+                    break;
+                case 'change_phase':
+                    phaseGroup.style.display = 'block';
+                    break;
+                case 'emergency_shutdown':
+                    // No additional input needed
+                    break;
+            }
+        }
+
+        function selectAllChambers() {
+            document.querySelectorAll('.chamber-select').forEach(cb => cb.checked = true);
+            updateSelectionCount();
+        }
+
+        function clearSelection() {
+            document.querySelectorAll('.chamber-select').forEach(cb => cb.checked = false);
+            updateSelectionCount();
+        }
+
+        function selectActiveChambers() {
+            document.querySelectorAll('.chamber-select').forEach(cb => {
+                const env = environments.find(e => e.id == cb.value);
+                cb.checked = env && env.species_id;
+            });
+            updateSelectionCount();
+        }
+
+        function updateSelectionCount() {
+            const selected = document.querySelectorAll('.chamber-select:checked').length;
+            const total = environments.length;
+            document.querySelector('.batch-selection h4').textContent = 
+                `Select Chambers: (${selected}/${total} selected)`;
+        }
+
+        async function executeBulkAction() {
+            const action = document.getElementById('bulk-action-select').value;
+            const selectedChambers = Array.from(document.querySelectorAll('.chamber-select:checked')).map(cb => parseInt(cb.value));
+            
+            if (!action || selectedChambers.length === 0) {
+                alert('Please select an action and at least one chamber');
+                return;
+            }
+            
+            let value;
+            switch(action) {
+                case 'set_temperature':
+                case 'set_humidity':
+                    value = document.getElementById('bulk-action-value').value;
+                    if (!value) {
+                        alert('Please enter a value');
+                        return;
+                    }
+                    break;
+                case 'assign_species':
+                    value = document.getElementById('species-select').value;
+                    break;
+                case 'change_phase':
+                    value = document.getElementById('phase-select').value;
+                    break;
+                case 'emergency_shutdown':
+                    if (!confirm('Are you sure you want to perform emergency shutdown on selected chambers?')) {
+                        return;
+                    }
+                    value = 'shutdown';
+                    break;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/batch/execute`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action,
+                        chamber_ids: selectedChambers,
+                        value
+                    })
+                });
+                
+                const result = await response.json();
+                displayResults(result);
+                
+                // Refresh chamber data
+                await loadBatchOperationsData();
+            } catch (error) {
+                console.error('Batch operation error:', error);
+                alert('Batch operation failed');
+            }
+        }
+
+        function displayResults(result) {
+            const resultsDiv = document.getElementById('batch-results');
+            const contentDiv = document.getElementById('results-content');
+            
+            const successCount = result.results.filter(r => r.status === 'success').length;
+            const failureCount = result.results.length - successCount;
+            
+            contentDiv.innerHTML = `
+                <div class="results-summary">
+                    <p><strong>Operation:</strong> ${result.action}</p>
+                    <p><strong>Chambers Targeted:</strong> ${result.chamber_ids.length}</p>
+                    <p><strong>Successful:</strong> ${successCount}</p>
+                    <p><strong>Failed:</strong> ${failureCount}</p>
+                    <p><strong>Timestamp:</strong> ${result.timestamp}</p>
+                </div>
+                <div class="results-details">
+                    ${result.results.map(r => `
+                        <div class="result-item ${r.status}">
+                            Chamber ${r.chamber_id}: ${r.status}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            resultsDiv.style.display = 'block';
+            
+            // Add to operation history
+            addToOperationHistory(result);
+        }
+
+        function addToOperationHistory(operation) {
+            const historyList = document.getElementById('operation-history-list');
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history-item';
+            historyItem.innerHTML = `
+                <h5>${operation.action} - ${operation.chamber_ids.length} chambers</h5>
+                <p>Executed: ${operation.timestamp}</p>
+                <p>Success Rate: ${operation.results.filter(r => r.status === 'success').length}/${operation.results.length}</p>
+            `;
+            
+            if (historyList.querySelector('.empty-state')) {
+                historyList.innerHTML = '';
+            }
+            
+            historyList.insertBefore(historyItem, historyList.firstChild);
+        }
+
+        // Make functions globally accessible
+        window.selectAllChambers = selectAllChambers;
+        window.clearSelection = clearSelection;
+        window.selectActiveChambers = selectActiveChambers;
+        window.updateActionForm = updateActionForm;
+        window.executeBulkAction = executeBulkAction;
+    </script>
+</body>
+</html>
