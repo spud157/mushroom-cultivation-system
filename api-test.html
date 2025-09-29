@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test Page</title>
+    <script>
+        const API_BASE_URL = 'http://localhost:8001/api';
+
+        async function testEndpoints() {
+            try {
+                // Test species endpoint
+                const speciesResponse = await fetch(`${API_BASE_URL}/species/`);
+                const speciesData = await speciesResponse.json();
+                document.getElementById('species-result').textContent = 
+                    `Success! Found ${speciesData.length} species.`;
+                
+                // Test environments endpoint
+                const envResponse = await fetch(`${API_BASE_URL}/environments/`);
+                const envData = await envResponse.json();
+                document.getElementById('env-result').textContent = 
+                    `Success! Found ${envData.length} environments.`;
+                
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('error').textContent = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>API Test Page</h1>
+    <button onclick="testEndpoints()">Test API Endpoints</button>
+    
+    <div id="results" style="margin-top: 20px;">
+        <div id="species-result">Not tested yet</div>
+        <div id="env-result">Not tested yet</div>
+        <div id="error" style="color: red;"></div>
+    </div>
+    
+    <div style="margin-top: 30px;">
+        <h3>If you see CORS errors, try one of these solutions:</h3>
+        <ol>
+            <li>Install a CORS extension for your browser (like "CORS Unblock" for Chrome)</li>
+            <li>Run the server with CORS enabled (it should be already)</li>
+            <li>Use a proxy or configure your server to allow requests from your frontend domain</li>
+        </ol>
+    </div>
+</body>
+</html>

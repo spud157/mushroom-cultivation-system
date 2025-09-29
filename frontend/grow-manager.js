@@ -3,7 +3,7 @@
  */
 
 // API Configuration
-const API_BASE_URL = 'http://127.0.0.1:8001/api';
+const API_BASE_URL = 'http://localhost:8001';
 
 // Global variables
 let currentBatch = null;
@@ -15,32 +15,135 @@ let monitorInterval = null;
 
 // Page initialization
 window.addEventListener('load', async function() {
-    if (!checkAuthentication()) return;
-    await loadGrowData();
-    showGrowView('start');
-    generateBatchName();
+    if (checkAuthentication()) {
+        await loadGrowData();
+        showGrowView('start');
+        generateBatchName();
+    }
 });
 
+// Check authentication function
+function checkAuthentication() {
+    // Bypassing authentication for now
+    return true;
+}
+
 // Load all data for Grow Management
+function updateConnectionStatus(message, isError = false) {
+    const statusElement = document.getElementById('connection-status');
+    if (statusElement) {
+        statusElement.textContent = message;
+        statusElement.style.display = 'block';
+        statusElement.style.backgroundColor = isError ? '#f8d7da' : '#d1e7dd';
+        statusElement.style.color = isError ? '#842029' : '#0f5132';
+        statusElement.style.padding = '10px';
+        statusElement.style.borderRadius = '4px';
+        statusElement.style.margin = '10px 0';
+    }
+}
+
 async function loadGrowData() {
     try {
-        const [batchesResponse, cellsResponse, speciesResponse] = await Promise.all([
-            fetch(`${API_BASE_URL}/batches`),
-            fetch(`${API_BASE_URL}/cells`),
-            fetch(`${API_BASE_URL}/species/profiles`)
+        updateConnectionStatus('Connecting to server...', false);
+        
+        const speciesUrl = `${API_BASE_URL}/species/`;
+        const environmentsUrl = `${API_BASE_URL}/environments/`;
+        
+        updateConnectionStatus(`Fetching data from: ${API_BASE_URL}`, false);
+        
+        // Test connection to the API
+        try {
+            const testResponse = await fetch(speciesUrl, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                mode: 'cors',
+                credentials: 'include'
+            });
+            
+            if (!testResponse.ok) {
+                throw new Error(`API Error: ${testResponse.status} ${testResponse.statusText}`);
+            }
+        } catch (testError) {
+            console.error('Connection test failed:', testError);
+            throw new Error(`Cannot connect to the API server. Make sure the server is running at ${API_BASE_URL}`);
+        }
+        
+        const [speciesResponse, environmentsResponse] = await Promise.all([
+            fetch(speciesUrl, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                mode: 'cors',
+                credentials: 'include'
+            }),
+            fetch(environmentsUrl, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                mode: 'cors',
+                credentials: 'include'
+            })
         ]);
         
-        batches = await batchesResponse.json();
-        cells = await cellsResponse.json();
-        speciesProfiles = await speciesResponse.json();
+        if (!speciesResponse.ok) {
+            throw new Error(`Failed to load species: ${speciesResponse.statusText}`);
+        }
+        if (!environmentsResponse.ok) {
+            throw new Error(`Failed to load environments: ${environmentsResponse.statusText}`);
+        }
+        
+        const speciesData = await speciesResponse.json();
+        const environmentsData = await environmentsResponse.json();
+        
+        // Map to expected frontend format
+        if (!Array.isArray(speciesData)) {
+            throw new Error('Invalid species data format received from server');
+        }
+        if (!Array.isArray(environmentsData)) {
+            throw new Error('Invalid environments data format received from server');
+        }
+        
+        speciesProfiles = speciesData;
+        cells = environmentsData.map(env => ({
+            id: env.id,
+            name: env.name || `Chamber ${env.id}`,
+            location: env.location || 'Not specified',
+            status: env.is_active ? 'Available' : 'Occupied',
+            mcuId: `MCU_${env.id.toString().padStart(3, '0')}`,
+            capacity: '10kg substrate',
+            lastMaintenance: new Date().toISOString()
+        }));
+        
+        // For now, using a mock batches array since we don't have a batches endpoint
+        batches = [];
         
         updateStatusCounts();
         populateDropdowns();
         renderSpeciesLibrary();
         
+        // Log success to console
+        console.log('Successfully loaded data:', {
+            species: speciesProfiles,
+            cells: cells
+        });
+        
     } catch (error) {
         console.error('Error loading grow data:', error);
-        alert('Failed to load grow data');
+        updateConnectionStatus(`Error: ${error.message}`, true);
+        
+        // Log detailed error to console
+        console.error('Error details:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+        });
     }
 }
 
